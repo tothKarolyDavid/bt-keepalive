@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import sys
-import winreg
 
 APP_RUN_NAME = "BTKeepAlive"
 RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
@@ -14,6 +13,10 @@ def exe_path() -> str:
 
 
 def is_startup_enabled() -> bool:
+    if sys.platform != "win32":
+        return False
+    import winreg
+
     try:
         with winreg.OpenKey(
             winreg.HKEY_CURRENT_USER, RUN_KEY, 0, winreg.KEY_READ
@@ -27,6 +30,10 @@ def is_startup_enabled() -> bool:
 
 
 def set_startup_enabled(enabled: bool) -> bool:
+    if sys.platform != "win32":
+        return False
+    import winreg
+
     path = exe_path()
     if not path and enabled:
         return False
