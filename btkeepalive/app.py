@@ -33,6 +33,10 @@ class Application:
         with self._config_lock:
             return dict(self._config)
 
+    def _preview_volume(self, volume: float) -> None:
+        """Hear volume changes while the dialog slider moves; does not save."""
+        self._audio.set_volume(float(volume))
+
     def _set_volume(self, volume: float) -> None:
         """Update volume only — never touch the audio stream or tray menu tree."""
         snapshot: dict | None = None
@@ -52,9 +56,11 @@ class Application:
         playing: bool | None = None
         startup_change: bool | None = None
         snapshot: dict | None = None
+        mode_changed = False
         with self._config_lock:
             old_startup = self._config.get("launch_at_startup", False)
             old_sample_rate = self._config.get("sample_rate")
+            old_keepalive_mode = self._config.get("keepalive_mode")
             self._config.update(config)
 
             startup = self._config.get("launch_at_startup", False)
@@ -69,7 +75,12 @@ class Application:
 
             playing = self._config.get("playing", True)
             snapshot = dict(self._config)
+            mode_changed = (
+                self._config.get("keepalive_mode") != old_keepalive_mode
+            )
 
+        if mode_changed:
+            self._audio.reset_pulse_phase()
         if startup_change is not None:
             set_startup_enabled(startup_change)
         if snapshot is not None:
@@ -114,6 +125,7 @@ class Application:
             get_config=self._get_config_safe,
             update_config=self._update_config,
             set_volume=self._set_volume,
+            preview_volume=self._preview_volume,
             on_quit=self._shutdown,
         )
         self._tray.run()
