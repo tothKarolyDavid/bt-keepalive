@@ -1,0 +1,193 @@
+from __future__ import annotations
+
+import functools
+import sys
+from typing import Callable
+
+from PIL import Image, ImageDraw
+import pystray
+
+from btkeepalive.config import CARRIER_OPTIONS, PRESETS, VOLUME_OPTIONS
+from btkeepalive.win_tray import create_tray_icon
+
+PRESET_LABELS = {
+    "white": "White noise",
+    "pink": "Pink noise",
+    "brown": "Brown noise",
+    "blue": "Blue noise",
+    "violet": "Violet noise",
+    "binaural40": "40 Hz binaural",
+}
+
+
+def _format_volume_label(vol: float) -> str:
+    return f"{vol * 100:.2f}%".rstrip("0").rstrip(".")
+
+
+def _make_icon(active: bool) -> Image.Image:
+    size = 64
+    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    color = (46, 160, 67, 255) if active else (120, 120, 120, 255)
+    draw.ellipse((8, 8, 56, 56), fill=color)
+    draw.ellipse((22, 22, 42, 42), fill=(255, 255, 255, 220))
+    return img
+
+
+class TrayApp:
+    def __init__(
+        self,
+        get_config: Callable[[], dict],
+        update_config: Callable[[dict], None],
+        on_quit: Callable[[], None],
+        set_volume: Callable[[float], None] | None = None,
+    ) -> None:
+        self._get_config = get_config
+        self._update_config = update_config
+        self._set_volume_only = set_volume
+        self._on_quit = on_quit
+        self._icon: pystray.Icon | None = None
+
+    def _sync_title(self) -> None:
+        if self._icon is None:
+            return
+        cfg = self._get_config()
+        preset = cfg.get("preset", "brown")
+        label = PRESET_LABELS.get(preset, preset)
+        vol = float(cfg.get("volume", 0.02)) * 100
+        state = "Playing" if cfg.get("playing", True) else "Paused"
+        self._icon.title = f"BT KeepAlive — {label}, {vol:g}% ({state})"
+
+    def _refresh_icon(self) -> None:
+        if self._icon is None:
+            return
+        cfg = self._get_config()
+        self._icon.icon = _make_icon(cfg.get("playing", True))
+
+    def _set_playing(self, playing: bool) -> None:
+        cfg = self._get_config()
+        cfg["playing"] = playing
+        self._update_config(cfg)
+        self._refresh_icon()
+        self._sync_title()
+
+    def _toggle_playing(self) -> None:
+        cfg = self._get_config()
+        self._set_playing(not cfg.get("playing", True))
+
+    def _action_preset(self, preset: str, _icon, _item) -> None:
+        self._set_preset(preset)
+
+    def _action_volume(self, volume: float, _icon, _item) -> None:
+        self._set_volume(volume)
+
+    def _action_carrier(self, carrier_hz: int, _icon, _item) -> None:
+        cfg = self._get_config()
+        cfg["carrier_hz"] = carrier_hz
+        self._update_config(cfg)
+        self._sync_title()
+
+    def _set_preset(self, preset: str) -> None:
+        cfg = self._get_config()
+        if cfg.get("preset") == preset:
+            return
+        cfg["preset"] = preset
+        self._update_config(cfg)
+        self._sync_title()
+
+    def _set_volume(self, volume: float) -> None:
+        if self._set_volume_only is not None:
+            self._set_volume_only(volume)
+            self._sync_title()
+            return
+        cfg = self._get_config()
+        cfg["volume"] = volume
+        self._update_config(cfg)
+        self._sync_title()
+
+    def _set_carrier(self, carrier_hz: int) -> None:
+        self._action_carrier(carrier_hz, None, None)
+
+    def _toggle_startup(self) -> None:
+        cfg = self._get_config()
+        cfg["launch_at_startup"] = not cfg.get("launch_at_startup", False)
+        self._update_config(cfg)
+
+    def _build_menu(self) -> pystray.Menu:
+        sound_items = [
+            pystray.MenuItem(
+                PRESET_LABELS[p],
+                functools.partial(self._action_preset, p),
+                checked=lambda item, preset=p: self._get_config().get(
+                    "preset", "brown"
+                )
+                == preset,
+                radio=True,
+            )
+            for p in PRESETS
+        ]
+
+        volume_items = [
+            pystray.MenuItem(
+                _format_volume_label(vol),
+                functools.partial(self._action_volume, vol),
+                checked=lambda item, volume=vol: float(
+                    self._get_config().get("volume", 0.02)
+                )
+                == volume,
+                radio=True,
+            )
+            for vol in VOLUME_OPTIONS
+        ]
+
+        carrier_items = [
+            pystray.MenuItem(
+                f"{hz} Hz",
+                functools.partial(self._action_carrier, hz),
+                checked=lambda item, carrier_hz=hz: self._get_config().get(
+                    "carrier_hz", 200
+                )
+                == carrier_hz,
+                radio=True,
+            )
+            for hz in CARRIER_OPTIONS
+        ]
+
+        return pystray.Menu(
+            pystray.MenuItem(
+                lambda item: (
+                    "Pause" if self._get_config().get("playing", True) else "Play"
+                ),
+                lambda _: self._toggle_playing(),
+            ),
+            pystray.MenuItem("Sound", pystray.Menu(*sound_items)),
+            pystray.MenuItem("Volume", pystray.Menu(*volume_items)),
+            pystray.MenuItem("Binaural carrier", pystray.Menu(*carrier_items)),
+            pystray.MenuItem(
+                "Launch at startup",
+                lambda _: self._toggle_startup(),
+                checked=lambda item: self._get_config().get("launch_at_startup", False),
+                enabled=lambda item: getattr(sys, "frozen", False),
+            ),
+            pystray.Menu.SEPARATOR,
+            pystray.MenuItem("Quit", lambda _: self._quit()),
+        )
+
+    def _quit(self) -> None:
+        if self._icon:
+            self._icon.stop()
+        self._on_quit()
+
+    def _on_setup(self, icon: pystray.Icon) -> None:
+        icon.visible = True
+        self._sync_title()
+
+    def run(self) -> None:
+        cfg = self._get_config()
+        self._icon = create_tray_icon(
+            "BTKeepAlive",
+            _make_icon(cfg.get("playing", True)),
+            "BT KeepAlive",
+            menu=self._build_menu(),
+        )
+        self._icon.run(setup=self._on_setup)
