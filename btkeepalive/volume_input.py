@@ -6,11 +6,28 @@ import sys
 import threading
 from collections.abc import Callable
 
-from btkeepalive.config import DEFAULT_CONFIG, normalize_volume
+from btkeepalive.config import DEFAULT_CONFIG
+
+
+def parse_volume_percent(text: str) -> float | None:
+    """Parse input for a field labeled with % (1 → 1%, 0.5 → 0.5%)."""
+    raw = text.strip()
+    if not raw:
+        return None
+    cleaned = raw.replace("%", "").strip()
+    if not cleaned:
+        return None
+    try:
+        value = float(cleaned)
+    except ValueError:
+        return None
+    if value <= 0 or value > 100:
+        return None
+    return value / 100.0
 
 
 def parse_volume_text(text: str) -> float | None:
-    """Parse user input; returns linear gain in (0, 1] or None if invalid."""
+    """Parse free-form input; returns linear gain in (0, 1] or None if invalid."""
     raw = text.strip()
     if not raw:
         return None
@@ -24,9 +41,9 @@ def parse_volume_text(text: str) -> float | None:
         return None
     if has_percent:
         gain = value / 100.0
-    elif 0 < value <= 1:
+    elif 0 < value < 1:
         gain = value
-    elif value > 1:
+    elif value >= 1:
         gain = value / 100.0
     else:
         return None
