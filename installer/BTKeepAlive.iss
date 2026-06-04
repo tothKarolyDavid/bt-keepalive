@@ -1,6 +1,9 @@
 ; Inno Setup script: compile after build.ps1 produces dist\BTKeepAlive.exe
 #define MyAppName "BT KeepAlive"
+; Default when not passed on the command line; keep in sync with pyproject.toml
+#ifndef MyAppVersion
 #define MyAppVersion "1.1.0"
+#endif
 #define MyAppPublisher "BT KeepAlive"
 #define MyAppExeName "BTKeepAlive.exe"
 
