@@ -48,7 +48,6 @@ Inspired by tools like [SoundKeeper](https://github.com/amd/SoundKeeper), but fo
 ## Features
 
 - **Noise presets**: white, pink, brown, blue, violet
-- **Silent noise preset**: continuous, very quiet brown-shaped noise
 - **40 Hz binaural beats** with adjustable carrier (100–300 Hz)
 - **Volume control**: slider dialog plus tray presets
 - **Pulse keepalive**: short quiet pulse on an interval (mostly silent, like SoundKeeper)
@@ -64,8 +63,7 @@ Right-click the tray icon to change sound, volume, and mode. Default is **brown 
 | Tray action | What it does |
 |-------------|--------------|
 | **Play / Pause** | Start or stop the keepalive stream (label shows **Pause** while playing) |
-| **Pulse keepalive (mostly silent)** | Toggle pulse mode on/off (checked when pulse mode is active) |
-| **Pulse interval… (N s)** | Set how often pulses fire; only shown while pulse mode is on |
+| **Pulse keepalive** | Toggle pulse mode on/off (checked when pulse mode is active) |
 | **Sound** | Pick a noise preset or **40 Hz binaural** (selecting a preset switches back to continuous mode) |
 | **Volume** | **Adjust volume…** opens a slider dialog; below that, radio presets (0.01%–20%) |
 | **Binaural carrier** | Carrier frequency for **40 Hz binaural**: 100, 150, 200, 250, or 300 Hz |
@@ -75,9 +73,9 @@ Right-click the tray icon to change sound, volume, and mode. Default is **brown 
 ### Continuous vs pulse mode
 
 - **Continuous (default)**: plays your chosen preset at low volume. Best when a tiny background hum is acceptable.
-- **Pulse**: sends a very short, very quiet pulse every ~55 seconds (configurable). Best when you want the tray icon active but almost no audible output.
+- **Pulse**: sends a very short, very quiet pulse every ~55 seconds. Best when you want the tray icon active but almost no audible output.
 
-If Bluetooth still drops in pulse mode, lower the pulse interval from the tray or in `config.json`.
+If Bluetooth still drops in pulse mode, lower `pulse_interval_sec` in `config.json`.
 
 ---
 
@@ -102,7 +100,7 @@ Set `BTKEEPALIVE_LOG_LEVEL=DEBUG` for verbose logging.
 | `volume` | `0.02` | Volume / Adjust volume… |
 | `carrier_hz` | `200` | Binaural carrier |
 | `keepalive_mode` | `continuous` | Pulse keepalive toggle |
-| `pulse_interval_sec` | `55` | Pulse interval… (pulse mode) |
+| `pulse_interval_sec` | `55` | JSON only (pulse mode timing) |
 | `pulse_duration_sec` | `1` | JSON only |
 | `pulse_amplitude` | `0.0001` | JSON only |
 | `sample_rate` | `44100` | JSON only |
@@ -136,7 +134,7 @@ git clone https://github.com/tothKarolyDavid/bt-keepalive.git
 cd bt-keepalive
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-pip install -r requirements-dev.txt
+pip install -e ".[dev]"
 python -m btkeepalive
 ```
 
@@ -154,7 +152,7 @@ python -m btkeepalive --no-autoplay
 
 ```powershell
 .\.venv\Scripts\Activate.ps1
-pip install -r requirements-dev.txt
+pip install -e ".[dev]"
 .\build.ps1
 # Output: dist\BTKeepAlive.exe
 ```
@@ -171,6 +169,7 @@ iscc installer\BTKeepAlive.iss
 ```powershell
 pip install -e ".[dev]"
 ruff check .
+ruff format --check .
 pytest
 ```
 
