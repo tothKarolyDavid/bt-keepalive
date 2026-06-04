@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import functools
 import sys
-from typing import Callable
+from collections.abc import Callable
 
-from PIL import Image, ImageDraw
 import pystray
+from PIL import Image
 
 from btkeepalive.config import (
     CARRIER_OPTIONS,
@@ -15,6 +15,8 @@ from btkeepalive.config import (
     VOLUME_PRESETS,
     format_volume_label,
 )
+from btkeepalive.icon_art import render_icon
+from btkeepalive.pulse_input import request_pulse_interval_change
 from btkeepalive.volume_input import request_volume_change
 from btkeepalive.win_tray import create_tray_icon
 
@@ -24,7 +26,7 @@ PRESET_LABELS = {
     "brown": "Brown noise",
     "blue": "Blue noise",
     "violet": "Violet noise",
-    "silent": "Silent (inaudible)",
+    "silent": "Silent noise preset (continuous)",
     "binaural40": "40 Hz binaural",
 }
 
@@ -34,13 +36,7 @@ def _volume_matches(vol: float, target: float) -> bool:
 
 
 def _make_icon(active: bool) -> Image.Image:
-    size = 64
-    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(img)
-    color = (46, 160, 67, 255) if active else (120, 120, 120, 255)
-    draw.ellipse((8, 8, 56, 56), fill=color)
-    draw.ellipse((22, 22, 42, 42), fill=(255, 255, 255, 220))
-    return img
+    return render_icon(active=active, size=64)
 
 
 class TrayApp:
@@ -67,7 +63,7 @@ class TrayApp:
         if cfg.get("keepalive_mode") == KEEPALIVE_MODE_PULSE:
             interval = int(float(cfg.get("pulse_interval_sec", 55)))
             self._icon.title = (
-                f"BT KeepAlive — Inaudible pulse every {interval}s ({state})"
+                f"BT KeepAlive — Pulse keepalive every {interval}s ({state})"
             )
             return
         preset = cfg.get("preset", "brown")
@@ -98,6 +94,14 @@ class TrayApp:
     def _action_volume(self, volume: float, _icon, _item) -> None:
         self._set_volume(volume)
 
+    def _adjust_volume_label(self) -> str:
+        vol = float(self._get_config().get("volume", 0.02))
+        return f"Adjust volume… ({format_volume_label(vol)})"
+
+    def _pulse_interval_label(self) -> str:
+        sec = int(float(self._get_config().get("pulse_interval_sec", 55)))
+        return f"Pulse interval… ({sec} s)"
+
     def _action_set_volume(self, _icon, _item) -> None:
         current = float(self._get_config().get("volume", 0.02))
 
@@ -110,6 +114,19 @@ class TrayApp:
             apply,
             on_preview=self._preview_volume_only,
         )
+
+    def _action_pulse_interval(self, _icon, _item) -> None:
+        current = float(self._get_config().get("pulse_interval_sec", 55))
+
+        def apply(new_interval: float | None) -> None:
+            if new_interval is None:
+                return
+            cfg = self._get_config()
+            cfg["pulse_interval_sec"] = new_interval
+            self._update_config(cfg)
+            self._sync_title()
+
+        request_pulse_interval_change(current, apply)
 
     def _action_carrier(self, carrier_hz: int, _icon, _item) -> None:
         cfg = self._get_config()
@@ -139,9 +156,6 @@ class TrayApp:
         self._update_config(cfg)
         self._sync_title()
 
-    def _set_carrier(self, carrier_hz: int) -> None:
-        self._action_carrier(carrier_hz, None, None)
-
     def _is_inaudible_profile(self) -> bool:
         return self._get_config().get("keepalive_mode") == KEEPALIVE_MODE_PULSE
 
@@ -164,10 +178,11 @@ class TrayApp:
             pystray.MenuItem(
                 PRESET_LABELS[p],
                 functools.partial(self._action_preset, p),
-                checked=lambda item, preset=p: self._get_config().get(
-                    "preset", "brown"
-                )
-                == preset,
+                checked=lambda item, preset=p: (
+                    self._get_config().get("preset", "brown") == preset
+                    and self._get_config().get("keepalive_mode")
+                    == KEEPALIVE_MODE_CONTINUOUS
+                ),
                 radio=True,
             )
             for p in PRESETS
@@ -175,9 +190,7 @@ class TrayApp:
 
         volume_items = [
             pystray.MenuItem(
-                lambda item: (
-                    f"Adjust volume… ({format_volume_label(float(self._get_config().get('volume', 0.02)))})"
-                ),
+                lambda item: self._adjust_volume_label(),
                 self._action_set_volume,
             ),
             pystray.Menu.SEPARATOR,
@@ -198,10 +211,9 @@ class TrayApp:
             pystray.MenuItem(
                 f"{hz} Hz",
                 functools.partial(self._action_carrier, hz),
-                checked=lambda item, carrier_hz=hz: self._get_config().get(
-                    "carrier_hz", 200
-                )
-                == carrier_hz,
+                checked=lambda item, carrier_hz=hz: (
+                    self._get_config().get("carrier_hz", 200) == carrier_hz
+                ),
                 radio=True,
             )
             for hz in CARRIER_OPTIONS
@@ -215,9 +227,14 @@ class TrayApp:
                 lambda _: self._toggle_playing(),
             ),
             pystray.MenuItem(
-                "Inaudible keepalive",
+                "Pulse keepalive (mostly silent)",
                 lambda _: self._toggle_inaudible(),
                 checked=lambda item: self._is_inaudible_profile(),
+            ),
+            pystray.MenuItem(
+                lambda item: self._pulse_interval_label(),
+                self._action_pulse_interval,
+                visible=lambda item: self._is_inaudible_profile(),
             ),
             pystray.MenuItem("Sound", pystray.Menu(*sound_items)),
             pystray.MenuItem("Volume", pystray.Menu(*volume_items)),
