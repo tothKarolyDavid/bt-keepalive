@@ -1,0 +1,55 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Generate icon
+        run: python scripts/generate_icon.py
+
+      - name: Build executable
+        run: powershell -ExecutionPolicy Bypass -File build.ps1
+
+      - name: Compute checksum
+        shell: pwsh
+        run: |
+          $hash = Get-FileHash -Path dist/BTKeepAlive.exe -Algorithm SHA256
+          "$($hash.Hash)  BTKeepAlive.exe" | Out-File -FilePath dist/SHA256SUMS.txt -Encoding utf8
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          name: BT KeepAlive ${{ github.ref_name }}
+          body: |
+            ## Download
+
+            | File | Description |
+            |------|-------------|
+            | [BTKeepAlive.exe](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/BTKeepAlive.exe) | Portable app — no install required |
+            | [SHA256SUMS.txt](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/SHA256SUMS.txt) | SHA256 checksum for verification |
+
+            1. Download **BTKeepAlive.exe**
+            2. Move it to a permanent folder (e.g. `%LOCALAPPDATA%\Programs\BTKeepAlive\`)
+            3. Run it and enable **Launch at startup** from the tray menu if desired
+
+            See the [README](https://github.com/${{ github.repository }}#download) for troubleshooting (SmartScreen, antivirus, etc.).
+          files: |
+            dist/BTKeepAlive.exe
+            dist/SHA256SUMS.txt
