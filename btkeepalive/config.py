@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 APP_NAME = "BTKeepAlive"
-PRESETS = ("white", "pink", "brown", "blue", "violet", "silent", "binaural40")
+PRESETS = ("white", "pink", "brown", "blue", "violet", "binaural40")
 CARRIER_OPTIONS = (100, 150, 200, 250, 300)
 KEEPALIVE_MODE_CONTINUOUS = "continuous"
 KEEPALIVE_MODE_PULSE = "pulse"

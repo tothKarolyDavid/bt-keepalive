@@ -12,11 +12,11 @@ from btkeepalive.config import (
     KEEPALIVE_MODE_CONTINUOUS,
     KEEPALIVE_MODE_PULSE,
     PRESETS,
+    PULSE_INTERVAL_SEC,
     VOLUME_PRESETS,
     format_volume_label,
 )
 from btkeepalive.icon_art import render_icon
-from btkeepalive.pulse_input import request_pulse_interval_change
 from btkeepalive.volume_input import request_volume_change
 from btkeepalive.win_tray import create_tray_icon
 
@@ -26,7 +26,6 @@ PRESET_LABELS = {
     "brown": "Brown noise",
     "blue": "Blue noise",
     "violet": "Violet noise",
-    "silent": "Silent noise preset (continuous)",
     "binaural40": "40 Hz binaural",
 }
 
@@ -61,7 +60,7 @@ class TrayApp:
         cfg = self._get_config()
         state = "Playing" if cfg.get("playing", True) else "Paused"
         if cfg.get("keepalive_mode") == KEEPALIVE_MODE_PULSE:
-            interval = int(float(cfg.get("pulse_interval_sec", 55)))
+            interval = int(float(cfg.get("pulse_interval_sec", PULSE_INTERVAL_SEC)))
             self._icon.title = (
                 f"BT KeepAlive: Pulse keepalive every {interval}s ({state})"
             )
@@ -98,10 +97,6 @@ class TrayApp:
         vol = float(self._get_config().get("volume", 0.02))
         return f"Adjust volume… ({format_volume_label(vol)})"
 
-    def _pulse_interval_label(self) -> str:
-        sec = int(float(self._get_config().get("pulse_interval_sec", 55)))
-        return f"Pulse interval… ({sec} s)"
-
     def _action_set_volume(self, _icon, _item) -> None:
         current = float(self._get_config().get("volume", 0.02))
 
@@ -114,19 +109,6 @@ class TrayApp:
             apply,
             on_preview=self._preview_volume_only,
         )
-
-    def _action_pulse_interval(self, _icon, _item) -> None:
-        current = float(self._get_config().get("pulse_interval_sec", 55))
-
-        def apply(new_interval: float | None) -> None:
-            if new_interval is None:
-                return
-            cfg = self._get_config()
-            cfg["pulse_interval_sec"] = new_interval
-            self._update_config(cfg)
-            self._sync_title()
-
-        request_pulse_interval_change(current, apply)
 
     def _action_carrier(self, carrier_hz: int, _icon, _item) -> None:
         cfg = self._get_config()
@@ -227,14 +209,9 @@ class TrayApp:
                 lambda _: self._toggle_playing(),
             ),
             pystray.MenuItem(
-                "Pulse keepalive (mostly silent)",
+                "Pulse keepalive",
                 lambda _: self._toggle_inaudible(),
                 checked=lambda item: self._is_inaudible_profile(),
-            ),
-            pystray.MenuItem(
-                lambda item: self._pulse_interval_label(),
-                self._action_pulse_interval,
-                visible=lambda item: self._is_inaudible_profile(),
             ),
             pystray.MenuItem("Sound", pystray.Menu(*sound_items)),
             pystray.MenuItem("Volume", pystray.Menu(*volume_items)),

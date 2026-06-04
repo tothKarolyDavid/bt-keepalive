@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-PRESET_NAMES = ("white", "pink", "brown", "blue", "violet", "silent")
+PRESET_NAMES = ("white", "pink", "brown", "blue", "violet")
 
 # Fixed gains: per-buffer peak normalization caused level jumps (clicks/pops).
 _GAIN = {
@@ -11,8 +11,6 @@ _GAIN = {
     "brown": 18.0,
     "blue": 0.22,
     "violet": 0.32,
-    # Brown-shaped noise at ~1/450 the level of "brown" (for inaudible keepalive).
-    "silent": 0.04,
 }
 
 # Leaky integrator for stationary brown noise (~-6 dB/octave).
@@ -36,7 +34,7 @@ class NoiseGenerator:
             return self._white(n)
         if self.preset == "pink":
             return self._pink(n)
-        if self.preset in ("brown", "silent"):
+        if self.preset == "brown":
             return self._brown(n)
         if self.preset == "blue":
             return self._blue(n)
