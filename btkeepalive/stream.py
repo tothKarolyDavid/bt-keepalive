@@ -8,6 +8,7 @@ import sounddevice as sd
 
 from btkeepalive.audio.binaural import BinauralGenerator
 from btkeepalive.audio.noise import NoiseGenerator
+from btkeepalive.config import KEEPALIVE_MODE_PULSE
 
 
 def mono_to_stereo(mono: np.ndarray) -> np.ndarray:
@@ -31,11 +32,22 @@ class AudioStream:
         self._binaural: BinauralGenerator | None = None
         self._last_preset: str | None = None
         self._last_carrier: float | None = None
+        self._last_keepalive_mode: str | None = None
         self._sample_rate: int = 44100
         self._live_volume: float = 0.02
+        self._pulse_pos: int = 0
 
     def set_volume(self, volume: float) -> None:
         self._live_volume = float(volume)
+
+    def reset_pulse_phase(self) -> None:
+        self._pulse_pos = 0
+
+    def _sync_mode(self, settings: dict) -> None:
+        mode = settings.get("keepalive_mode", "continuous")
+        if mode != self._last_keepalive_mode:
+            self._pulse_pos = 0
+            self._last_keepalive_mode = mode
 
     def _ensure_generators(self, settings: dict) -> None:
         preset = settings["preset"]
@@ -59,6 +71,27 @@ class AudioStream:
                 self._last_carrier = carrier
             self._noise = None
 
+    def _fill_pulse(self, outdata: np.ndarray, frames: int, settings: dict) -> None:
+        sr = int(settings["sample_rate"])
+        duration = float(settings.get("pulse_duration_sec", 1.0))
+        interval = float(settings.get("pulse_interval_sec", 55.0))
+        amplitude = float(settings.get("pulse_amplitude", 0.0001))
+
+        cycle = max(1, int(interval * sr))
+        pulse_len = min(max(1, int(duration * sr)), cycle - 1)
+
+        indices = self._pulse_pos + np.arange(frames, dtype=np.int64)
+        in_pulse = (indices % cycle) < pulse_len
+        outdata.fill(0)
+        pulse_frames = int(np.count_nonzero(in_pulse))
+        if pulse_frames:
+            outdata[in_pulse] = np.random.uniform(
+                -amplitude, amplitude, (pulse_frames, 2)
+            ).astype(np.float32)
+        self._pulse_pos = int(self._pulse_pos + frames)
+        if self._pulse_pos >= cycle * 1000:
+            self._pulse_pos %= cycle
+
     def _callback(self, outdata, frames, _time_info, status) -> None:
         if status and self._on_error:
             self._on_error(str(status))
@@ -68,6 +101,11 @@ class AudioStream:
             return
         try:
             with self._lock:
+                self._sync_mode(settings)
+                if settings.get("keepalive_mode") == KEEPALIVE_MODE_PULSE:
+                    self._fill_pulse(outdata, frames, settings)
+                    return
+
                 self._ensure_generators(settings)
                 preset = settings["preset"]
                 volume = self._live_volume
@@ -97,6 +135,8 @@ class AudioStream:
         settings = self._get_settings()
         sr = int(settings["sample_rate"])
         self._live_volume = float(settings.get("volume", 0.02))
+        self._pulse_pos = 0
+        self._last_keepalive_mode = settings.get("keepalive_mode")
         blocksize = 512
         with self._lock:
             if self._stream is not None:
@@ -121,4 +161,5 @@ class AudioStream:
             self._binaural = None
             self._last_preset = None
             self._last_carrier = None
-
+            self._last_keepalive_mode = None
+            self._pulse_pos = 0

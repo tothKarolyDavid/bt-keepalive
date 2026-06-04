@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-PRESET_NAMES = ("white", "pink", "brown", "blue", "violet")
+PRESET_NAMES = ("white", "pink", "brown", "blue", "violet", "silent")
 
 # Fixed gains — per-buffer peak normalization caused level jumps (clicks/pops).
 _GAIN = {
@@ -11,6 +11,8 @@ _GAIN = {
     "brown": 18.0,
     "blue": 0.22,
     "violet": 0.32,
+    # Brown-shaped noise at ~1/450 the level of "brown" (for inaudible keepalive).
+    "silent": 0.04,
 }
 
 # Leaky integrator for stationary brown noise (~-6 dB/octave).
@@ -34,7 +36,7 @@ class NoiseGenerator:
             return self._white(n)
         if self.preset == "pink":
             return self._pink(n)
-        if self.preset == "brown":
+        if self.preset in ("brown", "silent"):
             return self._brown(n)
         if self.preset == "blue":
             return self._blue(n)
@@ -61,7 +63,7 @@ class NoiseGenerator:
         out = np.empty(n, dtype=np.float32)
         leak = _BROWN_LEAK
         drive = _BROWN_DRIVE
-        gain = _GAIN["brown"]
+        gain = _GAIN[self.preset]
         state = self._brown_state
         for i in range(n):
             state = leak * state + (1.0 - leak) * drive * white[i]
