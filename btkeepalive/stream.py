@@ -1,0 +1,124 @@
+from __future__ import annotations
+
+import threading
+from typing import Callable
+
+import numpy as np
+import sounddevice as sd
+
+from btkeepalive.audio.binaural import BinauralGenerator
+from btkeepalive.audio.noise import NoiseGenerator
+
+
+def mono_to_stereo(mono: np.ndarray) -> np.ndarray:
+    stereo = np.empty((mono.shape[0], 2), dtype=np.float32)
+    stereo[:, 0] = mono
+    stereo[:, 1] = mono
+    return stereo
+
+
+class AudioStream:
+    def __init__(
+        self,
+        get_settings: Callable[[], dict],
+        on_error: Callable[[str], None] | None = None,
+    ) -> None:
+        self._get_settings = get_settings
+        self._on_error = on_error
+        self._lock = threading.Lock()
+        self._stream: sd.OutputStream | None = None
+        self._noise: NoiseGenerator | None = None
+        self._binaural: BinauralGenerator | None = None
+        self._last_preset: str | None = None
+        self._last_carrier: float | None = None
+        self._sample_rate: int = 44100
+        self._live_volume: float = 0.02
+
+    def set_volume(self, volume: float) -> None:
+        self._live_volume = float(volume)
+
+    def _ensure_generators(self, settings: dict) -> None:
+        preset = settings["preset"]
+        sr = int(settings["sample_rate"])
+        carrier = float(settings["carrier_hz"])
+        self._sample_rate = sr
+
+        if preset != "binaural40":
+            if self._noise is None or self._last_preset != preset:
+                self._noise = NoiseGenerator(preset)
+                self._last_preset = preset
+            self._binaural = None
+        else:
+            if (
+                self._binaural is None
+                or self._last_preset != preset
+                or self._last_carrier != carrier
+            ):
+                self._binaural = BinauralGenerator(sr, carrier)
+                self._last_preset = preset
+                self._last_carrier = carrier
+            self._noise = None
+
+    def _callback(self, outdata, frames, _time_info, status) -> None:
+        if status and self._on_error:
+            self._on_error(str(status))
+        settings = self._get_settings()
+        if not settings.get("playing", True):
+            outdata.fill(0)
+            return
+        try:
+            with self._lock:
+                self._ensure_generators(settings)
+                preset = settings["preset"]
+                volume = self._live_volume
+                noise = self._noise
+                binaural = self._binaural
+
+            if preset == "binaural40":
+                if binaural is None:
+                    raise RuntimeError("binaural generator not ready")
+                chunk = binaural.generate(frames)
+            else:
+                if noise is None:
+                    raise RuntimeError("noise generator not ready")
+                chunk = mono_to_stereo(noise.generate(frames))
+
+            outdata[:] = np.clip(chunk * volume, -1.0, 1.0).astype(np.float32)
+        except Exception as exc:
+            if self._on_error:
+                self._on_error(str(exc))
+            outdata.fill(0)
+
+    def is_running(self) -> bool:
+        with self._lock:
+            return self._stream is not None
+
+    def start(self) -> None:
+        settings = self._get_settings()
+        sr = int(settings["sample_rate"])
+        self._live_volume = float(settings.get("volume", 0.02))
+        blocksize = 512
+        with self._lock:
+            if self._stream is not None:
+                return
+            self._stream = sd.OutputStream(
+                samplerate=sr,
+                channels=2,
+                dtype="float32",
+                blocksize=blocksize,
+                callback=self._callback,
+            )
+            self._stream.start()
+
+    def stop(self) -> None:
+        with self._lock:
+            if self._stream is None:
+                return
+            self._stream.stop()
+            self._stream.close()
+            self._stream = None
+            self._noise = None
+            self._binaural = None
+            self._last_preset = None
+            self._last_carrier = None
+
