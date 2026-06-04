@@ -33,7 +33,7 @@ class Application:
         self._audio.set_volume(float(volume))
 
     def _set_volume(self, volume: float) -> None:
-        """Update volume only — never touch the audio stream or tray menu tree."""
+        """Update volume only; never touch the audio stream or tray menu tree."""
         snapshot: dict | None = None
         with self._config_lock:
             if abs(float(self._config.get("volume", 0)) - volume) < 1e-9:

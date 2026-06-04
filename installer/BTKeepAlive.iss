@@ -1,4 +1,4 @@
-; Inno Setup script — compile after build.ps1 produces dist\BTKeepAlive.exe
+; Inno Setup script: compile after build.ps1 produces dist\BTKeepAlive.exe
 #define MyAppName "BT KeepAlive"
 #define MyAppVersion "1.1.0"
 #define MyAppPublisher "BT KeepAlive"

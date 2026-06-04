@@ -74,7 +74,7 @@ def _draw_active_pulse(
     cy: float,
     radius: float,
 ) -> None:
-    """Subtle keepalive arcs — readable at 16px without cluttering the symbol."""
+    """Subtle keepalive arcs, readable at 16px without cluttering the symbol."""
     origin = (cx + radius * 0.08, cy + radius * 0.10)
     for i, spread in enumerate((0.34, 0.48, 0.62)):
         r = radius * spread

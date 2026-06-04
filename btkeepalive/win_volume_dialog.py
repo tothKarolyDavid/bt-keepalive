@@ -1,4 +1,4 @@
-"""Volume picker (tkinter on a worker thread — reliable slider rendering on Windows)."""
+"""Volume picker (tkinter on a worker thread; reliable slider rendering on Windows)."""
 
 from __future__ import annotations
 
@@ -52,7 +52,7 @@ def prompt_volume_dialog(
     syncing = {"busy": False}
 
     root = tk.Tk()
-    root.title("BT KeepAlive — Volume")
+    root.title("BT KeepAlive: Volume")
     root.resizable(False, False)
     try:
         root.attributes("-topmost", True)
@@ -69,7 +69,7 @@ def prompt_volume_dialog(
 
     ttk.Label(
         main,
-        text=("Keep the sound quiet — just loud enough for Bluetooth to stay awake."),
+        text=("Keep the sound quiet: just loud enough for Bluetooth to stay awake."),
         wraplength=400,
         justify=tk.CENTER,
     ).grid(row=0, column=0, columnspan=3, pady=(0, 4))

@@ -4,7 +4,7 @@ import numpy as np
 
 PRESET_NAMES = ("white", "pink", "brown", "blue", "violet", "silent")
 
-# Fixed gains — per-buffer peak normalization caused level jumps (clicks/pops).
+# Fixed gains: per-buffer peak normalization caused level jumps (clicks/pops).
 _GAIN = {
     "white": 0.22,
     "pink": 0.055,

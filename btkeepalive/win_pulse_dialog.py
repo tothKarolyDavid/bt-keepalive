@@ -32,7 +32,7 @@ def prompt_pulse_interval_dialog(current_sec: float) -> float | None:
     error_var = tk.StringVar(value="")
 
     root = tk.Tk()
-    root.title("BT KeepAlive — Pulse interval")
+    root.title("BT KeepAlive: Pulse interval")
     root.resizable(False, False)
     try:
         root.attributes("-topmost", True)

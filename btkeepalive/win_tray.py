@@ -1,4 +1,4 @@
-"""Windows tray icon — build the popup menu once; never rebuild on clicks."""
+"""Windows tray icon: build the popup menu once; never rebuild on clicks."""
 
 from __future__ import annotations
 

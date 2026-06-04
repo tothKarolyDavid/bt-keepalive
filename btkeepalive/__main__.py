@@ -10,7 +10,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="btkeepalive",
         description=(
-            "BT KeepAlive — Windows tray utility for Bluetooth headphone keepalive"
+            "BT KeepAlive: Windows tray utility for Bluetooth headphone keepalive"
         ),
     )
     parser.add_argument(

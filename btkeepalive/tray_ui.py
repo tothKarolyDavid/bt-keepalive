@@ -63,13 +63,13 @@ class TrayApp:
         if cfg.get("keepalive_mode") == KEEPALIVE_MODE_PULSE:
             interval = int(float(cfg.get("pulse_interval_sec", 55)))
             self._icon.title = (
-                f"BT KeepAlive — Pulse keepalive every {interval}s ({state})"
+                f"BT KeepAlive: Pulse keepalive every {interval}s ({state})"
             )
             return
         preset = cfg.get("preset", "brown")
         label = PRESET_LABELS.get(preset, preset)
         vol = format_volume_label(float(cfg.get("volume", 0.02)))
-        self._icon.title = f"BT KeepAlive — {label}, {vol} ({state})"
+        self._icon.title = f"BT KeepAlive: {label}, {vol} ({state})"
 
     def _refresh_icon(self) -> None:
         if self._icon is None:
