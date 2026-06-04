@@ -3,7 +3,9 @@ from __future__ import annotations
 import sys
 import threading
 
-from btkeepalive.config import load_config, save_config
+from btkeepalive import __version__
+from btkeepalive.app_log import log_audio_error, log_error, log_info
+from btkeepalive.config import config_dir, load_config, save_config
 from btkeepalive.single_instance import acquire
 from btkeepalive.startup import is_startup_enabled, set_startup_enabled
 from btkeepalive.stream import AudioStream
@@ -11,23 +13,16 @@ from btkeepalive.tray_ui import TrayApp
 
 
 class Application:
-    def __init__(self) -> None:
+    def __init__(self, *, no_autoplay: bool = False) -> None:
         self._config = load_config()
+        if no_autoplay:
+            self._config["autoplay"] = False
         self._config_lock = threading.Lock()
-        self._audio = AudioStream(
-            self._get_config_safe, on_error=self._log_audio_error
-        )
+        self._audio = AudioStream(self._get_config_safe, on_error=self._log_audio_error)
         self._tray: TrayApp | None = None
 
     def _log_audio_error(self, message: str) -> None:
-        try:
-            from btkeepalive.config import config_dir
-
-            log_path = config_dir() / "audio-errors.log"
-            with log_path.open("a", encoding="utf-8") as f:
-                f.write(message + "\n")
-        except OSError:
-            pass
+        log_audio_error(message)
 
     def _get_config_safe(self) -> dict:
         with self._config_lock:
@@ -47,9 +42,7 @@ class Application:
             snapshot = dict(self._config)
         self._audio.set_volume(volume)
         if snapshot is not None:
-            threading.Thread(
-                target=save_config, args=(snapshot,), daemon=True
-            ).start()
+            threading.Thread(target=save_config, args=(snapshot,), daemon=True).start()
 
     def _update_config(self, config: dict) -> None:
         restart_stream = False
@@ -57,6 +50,7 @@ class Application:
         startup_change: bool | None = None
         snapshot: dict | None = None
         mode_changed = False
+        old_startup = False
         with self._config_lock:
             old_startup = self._config.get("launch_at_startup", False)
             old_sample_rate = self._config.get("sample_rate")
@@ -75,18 +69,19 @@ class Application:
 
             playing = self._config.get("playing", True)
             snapshot = dict(self._config)
-            mode_changed = (
-                self._config.get("keepalive_mode") != old_keepalive_mode
-            )
+            mode_changed = self._config.get("keepalive_mode") != old_keepalive_mode
 
         if mode_changed:
             self._audio.reset_pulse_phase()
         if startup_change is not None:
-            set_startup_enabled(startup_change)
+            ok = set_startup_enabled(startup_change)
+            if not ok:
+                with self._config_lock:
+                    self._config["launch_at_startup"] = old_startup
+                snapshot = dict(self._config)
+                log_error("startup registry update failed")
         if snapshot is not None:
-            threading.Thread(
-                target=save_config, args=(snapshot,), daemon=True
-            ).start()
+            threading.Thread(target=save_config, args=(snapshot,), daemon=True).start()
 
         if restart_stream:
             self._audio.stop()
@@ -94,8 +89,8 @@ class Application:
             if restart_stream or not self._audio.is_running():
                 try:
                     self._audio.start()
-                except Exception:
-                    pass
+                except Exception as exc:
+                    log_error("stream restart failed: %s (see audio-errors.log)", exc)
         else:
             self._audio.stop()
 
@@ -104,20 +99,30 @@ class Application:
             return
         enabled = self._config.get("launch_at_startup", False)
         if enabled:
-            set_startup_enabled(True)
+            if not set_startup_enabled(True):
+                with self._config_lock:
+                    self._config["launch_at_startup"] = False
+                log_error("startup registry sync failed on launch")
         elif is_startup_enabled():
             set_startup_enabled(False)
 
     def run(self) -> int:
         if not acquire():
+            log_info("second instance blocked")
             return 0
 
+        log_info("starting BT KeepAlive %s", __version__)
         self._sync_startup_registry()
 
         if self._config.get("autoplay", True) and self._config.get("playing", True):
             try:
                 self._audio.start()
             except Exception as exc:
+                log_error(
+                    "initial audio start failed: %s (see %s)",
+                    exc,
+                    config_dir() / "audio-errors.log",
+                )
                 print(f"Failed to start audio: {exc}", file=sys.stderr)
                 return 1
 
@@ -132,4 +137,5 @@ class Application:
         return 0
 
     def _shutdown(self) -> None:
+        log_info("shutting down")
         self._audio.stop()
