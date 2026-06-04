@@ -49,7 +49,7 @@ jobs:
           "$($hash.Hash)  BTKeepAlive.exe" | Out-File -FilePath dist/SHA256SUMS.txt -Encoding utf8
 
       - name: Upload release assets
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           name: BT KeepAlive ${{ github.ref_name }}
           body: |
