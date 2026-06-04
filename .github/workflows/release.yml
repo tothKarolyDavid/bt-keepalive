@@ -42,7 +42,7 @@ jobs:
 
             | File | Description |
             |------|-------------|
-            | [BTKeepAlive.exe](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/BTKeepAlive.exe) | Portable app — no install required |
+            | [BTKeepAlive.exe](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/BTKeepAlive.exe) | Portable app; no install required |
             | [SHA256SUMS.txt](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/SHA256SUMS.txt) | SHA256 checksum for verification |
 
             1. Download **BTKeepAlive.exe**
