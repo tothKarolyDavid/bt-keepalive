@@ -11,6 +11,13 @@ from btkeepalive.audio.noise import NoiseGenerator
 from btkeepalive.config import KEEPALIVE_MODE_PULSE
 
 
+def blocksize_from_buffer_seconds(sample_rate: int, buffer_seconds: float) -> int:
+    """Audio callback frame count from sample rate and target buffer duration."""
+    sr = int(sample_rate)
+    buf_sec = float(buffer_seconds)
+    return max(64, min(8192, int(sr * buf_sec)))
+
+
 def mono_to_stereo(mono: np.ndarray) -> np.ndarray:
     stereo = np.empty((mono.shape[0], 2), dtype=np.float32)
     stereo[:, 0] = mono
@@ -137,8 +144,9 @@ class AudioStream:
         self._live_volume = float(settings.get("volume", 0.02))
         self._pulse_pos = 0
         self._last_keepalive_mode = settings.get("keepalive_mode")
-        buf_sec = float(settings.get("buffer_seconds", 0.012))
-        blocksize = max(64, min(8192, int(sr * buf_sec)))
+        blocksize = blocksize_from_buffer_seconds(
+            sr, float(settings.get("buffer_seconds", 0.012))
+        )
         with self._lock:
             if self._stream is not None:
                 return
