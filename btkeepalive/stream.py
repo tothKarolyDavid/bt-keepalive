@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import threading
-from typing import Callable
+from collections.abc import Callable
 
 import numpy as np
 import sounddevice as sd
@@ -137,7 +137,8 @@ class AudioStream:
         self._live_volume = float(settings.get("volume", 0.02))
         self._pulse_pos = 0
         self._last_keepalive_mode = settings.get("keepalive_mode")
-        blocksize = 512
+        buf_sec = float(settings.get("buffer_seconds", 0.012))
+        blocksize = max(64, min(8192, int(sr * buf_sec)))
         with self._lock:
             if self._stream is not None:
                 return
