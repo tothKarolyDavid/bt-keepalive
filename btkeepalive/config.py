@@ -7,9 +7,18 @@ from pathlib import Path
 from typing import Any
 
 APP_NAME = "BTKeepAlive"
-PRESETS = ("white", "pink", "brown", "blue", "violet", "binaural40")
+PRESETS = ("white", "pink", "brown", "blue", "violet", "silent", "binaural40")
 CARRIER_OPTIONS = (100, 150, 200, 250, 300)
-VOLUME_OPTIONS = (0.005, 0.01, 0.02, 0.05, 0.08, 0.12, 0.2)
+KEEPALIVE_MODE_CONTINUOUS = "continuous"
+KEEPALIVE_MODE_PULSE = "pulse"
+KEEPALIVE_MODES = (KEEPALIVE_MODE_CONTINUOUS, KEEPALIVE_MODE_PULSE)
+# Short quiet burst before typical ~60s BT sleep (see SoundKeeper).
+PULSE_DURATION_SEC = 1.0
+PULSE_INTERVAL_SEC = 55.0
+PULSE_AMPLITUDE = 0.0001
+# Tray shortcuts only; config accepts any value in (0, 1].
+VOLUME_PRESETS = (0.0001, 0.001, 0.005, 0.01, 0.02, 0.05, 0.08, 0.12, 0.2)
+VOLUME_OPTIONS = VOLUME_PRESETS  # backwards compatibility
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "preset": "brown",
@@ -17,6 +26,10 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "carrier_hz": 200,
     "sample_rate": 44100,
     "buffer_seconds": 2,
+    "keepalive_mode": KEEPALIVE_MODE_CONTINUOUS,
+    "pulse_duration_sec": PULSE_DURATION_SEC,
+    "pulse_interval_sec": PULSE_INTERVAL_SEC,
+    "pulse_amplitude": PULSE_AMPLITUDE,
     "autoplay": True,
     "launch_at_startup": False,
     "playing": True,
@@ -36,6 +49,28 @@ def config_path() -> Path:
     return config_dir() / "config.json"
 
 
+def format_volume_label(vol: float, *, for_input: bool = False) -> str:
+    """Human-readable percent string; `for_input` omits the % suffix for the dialog."""
+    pct = float(vol) * 100
+    if for_input:
+        if pct >= 1:
+            return f"{pct:g}"
+        return f"{pct:.6f}".rstrip("0").rstrip(".")
+    body = f"{pct:.4f}".rstrip("0").rstrip(".")
+    return f"{body}%"
+
+
+def normalize_volume(volume: float) -> float:
+    """Clamp invalid values to the default; otherwise keep the exact gain."""
+    try:
+        vol = float(volume)
+    except (TypeError, ValueError):
+        return float(DEFAULT_CONFIG["volume"])
+    if vol <= 0 or vol > 1:
+        return float(DEFAULT_CONFIG["volume"])
+    return vol
+
+
 def load_config() -> dict[str, Any]:
     path = config_path()
     if not path.exists():
@@ -49,15 +84,25 @@ def load_config() -> dict[str, Any]:
     merged.update(data)
     if merged["preset"] not in PRESETS:
         merged["preset"] = DEFAULT_CONFIG["preset"]
+    if merged.get("keepalive_mode") not in KEEPALIVE_MODES:
+        merged["keepalive_mode"] = DEFAULT_CONFIG["keepalive_mode"]
+    try:
+        merged["pulse_duration_sec"] = max(
+            0.1, float(merged.get("pulse_duration_sec", PULSE_DURATION_SEC))
+        )
+        merged["pulse_interval_sec"] = max(
+            merged["pulse_duration_sec"] + 1.0,
+            float(merged.get("pulse_interval_sec", PULSE_INTERVAL_SEC)),
+        )
+        amp = float(merged.get("pulse_amplitude", PULSE_AMPLITUDE))
+        merged["pulse_amplitude"] = min(max(amp, 1e-6), 0.01)
+    except (TypeError, ValueError):
+        merged["pulse_duration_sec"] = PULSE_DURATION_SEC
+        merged["pulse_interval_sec"] = PULSE_INTERVAL_SEC
+        merged["pulse_amplitude"] = PULSE_AMPLITUDE
     if merged["carrier_hz"] not in CARRIER_OPTIONS:
         merged["carrier_hz"] = DEFAULT_CONFIG["carrier_hz"]
-    try:
-        volume = float(merged["volume"])
-    except (TypeError, ValueError):
-        volume = DEFAULT_CONFIG["volume"]
-    if volume <= 0 or volume > 1:
-        volume = DEFAULT_CONFIG["volume"]
-    merged["volume"] = min(VOLUME_OPTIONS, key=lambda v: abs(v - volume))
+    merged["volume"] = normalize_volume(merged.get("volume", DEFAULT_CONFIG["volume"]))
     return merged
 
 
