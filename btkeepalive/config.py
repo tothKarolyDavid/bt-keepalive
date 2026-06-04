@@ -18,6 +18,7 @@ PULSE_INTERVAL_SEC = 55.0
 PULSE_AMPLITUDE = 0.0001
 # Tray shortcuts only; config accepts any value in (0, 1].
 VOLUME_PRESETS = (0.0001, 0.001, 0.005, 0.01, 0.02, 0.05, 0.08, 0.12, 0.2)
+VOLUME_QUICK_PRESETS = (0.01, 0.02, 0.05)
 VOLUME_OPTIONS = VOLUME_PRESETS  # backwards compatibility
 
 DEFAULT_CONFIG: dict[str, Any] = {
@@ -25,7 +26,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "volume": 0.02,
     "carrier_hz": 200,
     "sample_rate": 44100,
-    "buffer_seconds": 2,
+    # Approximate audio callback duration in seconds (capped when opening stream).
+    "buffer_seconds": 0.012,
     "keepalive_mode": KEEPALIVE_MODE_CONTINUOUS,
     "pulse_duration_sec": PULSE_DURATION_SEC,
     "pulse_interval_sec": PULSE_INTERVAL_SEC,
