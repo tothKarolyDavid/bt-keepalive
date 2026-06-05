@@ -1,4 +1,5 @@
 from unittest.mock import MagicMock, patch
+
 from btkeepalive.stream import AudioStream
 
 
@@ -42,7 +43,8 @@ def test_stream_active_status():
         mock_stream.active = False
         assert audio.is_running() is False
 
-        # Call start again. Since inactive, it should cleanup the old stream and start a new one
+        # Call start again. Since inactive, it should cleanup the
+        # old stream and start a new one
         mock_output_stream_cls.reset_mock()
         audio.start()
 
