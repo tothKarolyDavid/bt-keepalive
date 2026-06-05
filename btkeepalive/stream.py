@@ -136,7 +136,31 @@ class AudioStream:
 
     def is_running(self) -> bool:
         with self._lock:
-            return self._stream is not None
+            if self._stream is None:
+                return False
+            try:
+                return self._stream.active
+            except Exception:
+                return False
+
+    def _stop_unsafe(self) -> None:
+        if self._stream is None:
+            return
+        try:
+            self._stream.stop()
+        except Exception:
+            pass
+        try:
+            self._stream.close()
+        except Exception:
+            pass
+        self._stream = None
+        self._noise = None
+        self._binaural = None
+        self._last_preset = None
+        self._last_carrier = None
+        self._last_keepalive_mode = None
+        self._pulse_pos = 0
 
     def start(self) -> None:
         settings = self._get_settings()
@@ -149,7 +173,14 @@ class AudioStream:
         )
         with self._lock:
             if self._stream is not None:
-                return
+                try:
+                    active = self._stream.active
+                except Exception:
+                    active = False
+                if active:
+                    return
+                self._stop_unsafe()
+
             self._stream = sd.OutputStream(
                 samplerate=sr,
                 channels=2,
@@ -161,14 +192,4 @@ class AudioStream:
 
     def stop(self) -> None:
         with self._lock:
-            if self._stream is None:
-                return
-            self._stream.stop()
-            self._stream.close()
-            self._stream = None
-            self._noise = None
-            self._binaural = None
-            self._last_preset = None
-            self._last_carrier = None
-            self._last_keepalive_mode = None
-            self._pulse_pos = 0
+            self._stop_unsafe()
