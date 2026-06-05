@@ -24,6 +24,7 @@ dev = [
     "pytest>=8.0.0",
     "ruff>=0.8.0",
     "pyinstaller>=6.0.0",
+    "python-semantic-release>=9.0.0",
 ]
 
 [tool.setuptools.packages.find]
@@ -42,3 +43,20 @@ select = ["E", "F", "I", "UP", "B"]
 [tool.ruff.lint.per-file-ignores]
 "btkeepalive/tray_ui.py" = ["B008"]
 "scripts/generate_icon.py" = ["E402"]
+
+[tool.semantic_release]
+version_variables = [
+    "btkeepalive/__init__.py:_FALLBACK_VERSION",
+    "installer/BTKeepAlive.iss:MyAppVersion"
+]
+version_toml = [
+    "pyproject.toml:project.version"
+]
+branch = "main"
+
+[tool.semantic_release.publish]
+dist_glob_patterns = ["dist/BTKeepAlive.exe", "dist/SHA256SUMS.txt"]
+upload_to_vcs_release = true
+
+[tool.semantic_release.changelog.default_templates]
+changelog_file = "CHANGELOG.md"
