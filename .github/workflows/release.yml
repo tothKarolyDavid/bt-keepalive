@@ -2,24 +2,28 @@ name: Release
 
 on:
   push:
-    tags:
-      - "v*"
+    branches:
+      - main
 
 permissions:
   contents: write
 
 jobs:
-  build:
+  release:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install -e ".[dev]"
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
 
       - name: Ruff check
         run: ruff check .
@@ -30,41 +34,53 @@ jobs:
       - name: Pytest
         run: pytest
 
-      - name: Generate icon
-        run: python scripts/generate_icon.py
+      - name: Setup Git User
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Run Semantic Release Version
+        id: version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          semantic-release version
+
+      - name: Check if new release was created
+        id: check_release
+        shell: pwsh
+        run: |
+          $tag = git describe --tags --exact-match HEAD 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            echo "RELEASED=true" >> $env:GITHUB_ENV
+            echo "TAG_NAME=$tag" >> $env:GITHUB_ENV
+            Write-Host "New release tag detected: $tag"
+          } else {
+            echo "RELEASED=false" >> $env:GITHUB_ENV
+            Write-Host "No new release tag detected at HEAD."
+          }
 
       - name: Build executable
+        if: env.RELEASED == 'true'
         run: powershell -ExecutionPolicy Bypass -File build.ps1
 
       - name: Smoke test executable
+        if: env.RELEASED == 'true'
         shell: pwsh
         run: |
           & dist/BTKeepAlive.exe --version
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Compute checksum
+        if: env.RELEASED == 'true'
         shell: pwsh
         run: |
           $hash = Get-FileHash -Path dist/BTKeepAlive.exe -Algorithm SHA256
           "$($hash.Hash)  BTKeepAlive.exe" | Out-File -FilePath dist/SHA256SUMS.txt -Encoding utf8
 
-      - name: Upload release assets
-        uses: softprops/action-gh-release@v3
-        with:
-          name: BT KeepAlive ${{ github.ref_name }}
-          body: |
-            ## Download
-
-            | File | Description |
-            |------|-------------|
-            | [BTKeepAlive.exe](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/BTKeepAlive.exe) | Portable app; no install required |
-            | [SHA256SUMS.txt](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/SHA256SUMS.txt) | SHA256 checksum for verification |
-
-            1. Download **BTKeepAlive.exe**
-            2. Move it to a permanent folder (e.g. `%LOCALAPPDATA%\Programs\BTKeepAlive\`)
-            3. Run it and enable **Launch at startup** from the tray menu if desired
-
-            See the [README](https://github.com/${{ github.repository }}#download) for troubleshooting (SmartScreen, antivirus, etc.).
-          files: |
-            dist/BTKeepAlive.exe
-            dist/SHA256SUMS.txt
+      - name: Run Semantic Release Publish
+        if: env.RELEASED == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          semantic-release publish
