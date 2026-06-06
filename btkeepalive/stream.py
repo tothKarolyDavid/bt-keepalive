@@ -149,22 +149,13 @@ class AudioStream:
             except Exception:
                 return False
 
-    def _stop_unsafe(self) -> None:
+    def _stop_unsafe(self) -> sd.OutputStream | None:
         if self._stop_monitor_event is not None:
             self._stop_monitor_event.set()
         self._monitor_thread = None
         self._stop_monitor_event = None
 
-        if self._stream is None:
-            return
-        try:
-            self._stream.stop()
-        except Exception:
-            pass
-        try:
-            self._stream.close()
-        except Exception:
-            pass
+        stream = self._stream
         self._stream = None
         self._noise = None
         self._binaural = None
@@ -172,6 +163,7 @@ class AudioStream:
         self._last_carrier = None
         self._last_keepalive_mode = None
         self._pulse_pos = 0
+        return stream
 
     def start(self) -> None:
         settings = self._get_settings()
@@ -188,6 +180,7 @@ class AudioStream:
         except Exception:
             current_device_id = None
 
+        stream_to_close = None
         with self._lock:
             if self._stream is not None:
                 try:
@@ -196,7 +189,21 @@ class AudioStream:
                     active = False
                 if active:
                     return
-                self._stop_unsafe()
+                stream_to_close = self._stop_unsafe()
+
+        if stream_to_close is not None:
+            try:
+                stream_to_close.stop()
+            except Exception:
+                pass
+            try:
+                stream_to_close.close()
+            except Exception:
+                pass
+
+        with self._lock:
+            if self._stream is not None:
+                return
 
             self._last_device_id = current_device_id
 
@@ -219,8 +226,18 @@ class AudioStream:
                 self._monitor_thread.start()
 
     def stop(self) -> None:
+        stream = None
         with self._lock:
-            self._stop_unsafe()
+            stream = self._stop_unsafe()
+        if stream is not None:
+            try:
+                stream.stop()
+            except Exception:
+                pass
+            try:
+                stream.close()
+            except Exception:
+                pass
 
     def _monitor_loop(self, stop_event: threading.Event) -> None:
         while not stop_event.wait(3.0):
