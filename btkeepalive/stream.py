@@ -6,9 +6,11 @@ from collections.abc import Callable
 import numpy as np
 import sounddevice as sd
 
+from btkeepalive.app_log import log_error, log_info
 from btkeepalive.audio.binaural import BinauralGenerator
 from btkeepalive.audio.noise import NoiseGenerator
 from btkeepalive.config import KEEPALIVE_MODE_PULSE
+from btkeepalive.device_monitor import get_default_audio_endpoint_id
 
 
 def blocksize_from_buffer_seconds(sample_rate: int, buffer_seconds: float) -> int:
@@ -43,6 +45,9 @@ class AudioStream:
         self._sample_rate: int = 44100
         self._live_volume: float = 0.02
         self._pulse_pos: int = 0
+        self._monitor_thread: threading.Thread | None = None
+        self._stop_monitor_event: threading.Event | None = None
+        self._last_device_id: str | None = None
 
     def set_volume(self, volume: float) -> None:
         self._live_volume = float(volume)
@@ -144,6 +149,11 @@ class AudioStream:
                 return False
 
     def _stop_unsafe(self) -> None:
+        if self._stop_monitor_event is not None:
+            self._stop_monitor_event.set()
+        self._monitor_thread = None
+        self._stop_monitor_event = None
+
         if self._stream is None:
             return
         try:
@@ -171,6 +181,12 @@ class AudioStream:
         blocksize = blocksize_from_buffer_seconds(
             sr, float(settings.get("buffer_seconds", 0.012))
         )
+
+        try:
+            current_device_id = get_default_audio_endpoint_id()
+        except Exception:
+            current_device_id = None
+
         with self._lock:
             if self._stream is not None:
                 try:
@@ -181,6 +197,8 @@ class AudioStream:
                     return
                 self._stop_unsafe()
 
+            self._last_device_id = current_device_id
+
             self._stream = sd.OutputStream(
                 samplerate=sr,
                 channels=2,
@@ -190,6 +208,46 @@ class AudioStream:
             )
             self._stream.start()
 
+            if current_device_id is not None:
+                self._stop_monitor_event = threading.Event()
+                self._monitor_thread = threading.Thread(
+                    target=self._monitor_loop,
+                    args=(self._stop_monitor_event,),
+                    daemon=True,
+                )
+                self._monitor_thread.start()
+
     def stop(self) -> None:
         with self._lock:
             self._stop_unsafe()
+
+    def _monitor_loop(self, stop_event: threading.Event) -> None:
+        while not stop_event.wait(3.0):
+            if not self.is_running():
+                break
+            try:
+                current_id = get_default_audio_endpoint_id()
+            except Exception:
+                continue
+
+            if current_id is None:
+                continue
+
+            with self._lock:
+                last_id = self._last_device_id
+
+            if current_id != last_id:
+                log_info(
+                    "Default audio output device changed from %s to %s. "
+                    "Restarting stream.",
+                    last_id,
+                    current_id,
+                )
+                self.stop()
+                try:
+                    sd._terminate()
+                    sd._initialize()
+                except Exception as e:
+                    log_error("Failed to re-initialize sounddevice: %s", e)
+                self.start()
+                break
