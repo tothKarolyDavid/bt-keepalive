@@ -2,7 +2,7 @@
 #define MyAppName "BT KeepAlive"
 ; Default when not passed on the command line; keep in sync with pyproject.toml
 #ifndef MyAppVersion
-#define MyAppVersion "1.2.1"
+#define MyAppVersion "1.3.0"
 #endif
 #define MyAppPublisher "BT KeepAlive"
 #define MyAppExeName "BTKeepAlive.exe"

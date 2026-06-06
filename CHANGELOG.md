@@ -2,6 +2,36 @@
 
 <!-- version list -->
 
+## v1.3.0 (2026-06-06)
+
+### Bug Fixes
+
+- **stream**: Generate silent sine wave for pulse keepalive instead of noise
+  ([`59c4cca`](https://github.com/tothKarolyDavid/bt-keepalive/commit/59c4cca8964d976b736c66f05beb77ca47165ad5))
+
+- **stream**: Stop and close audio stream outside lock to prevent deadlock on exit
+  ([`88afe75`](https://github.com/tothKarolyDavid/bt-keepalive/commit/88afe759e28795f6b4382d07188331280f9d5441))
+
+### Code Style
+
+- **tests**: Remove trailing whitespace in test_stream_blocksize.py
+  ([`c08c158`](https://github.com/tothKarolyDavid/bt-keepalive/commit/c08c1586ffde902ea6b26be7a1499cebd28683e8))
+
+### Features
+
+- **device-monitor**: Implement default Windows audio endpoint ID detection
+  ([`8ad6384`](https://github.com/tothKarolyDavid/bt-keepalive/commit/8ad63844e81a30e79fb663d92a79c31df146fcb9))
+
+- **stream**: Restart audio stream when default audio device changes
+  ([`04a038d`](https://github.com/tothKarolyDavid/bt-keepalive/commit/04a038d5c1671f872de63f0956ee4fec069daee9))
+
+- **updater**: Implement github update checking, verification, and hot-swap logic
+  ([`de14f2b`](https://github.com/tothKarolyDavid/bt-keepalive/commit/de14f2bab945f2159321ceea026b636d810cccdc))
+
+- **updater**: Integrate update checking with application startup and tray menu
+  ([`9db16d4`](https://github.com/tothKarolyDavid/bt-keepalive/commit/9db16d4b857b831a51fa43c7a3af60194891f475))
+
+
 ## v1.2.1 (2026-06-05)
 
 ### Bug Fixes
