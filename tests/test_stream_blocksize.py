@@ -40,12 +40,12 @@ def test_fill_pulse_generates_sine_wave():
     stream._pulse_pos = 0
     settings = _pulse_settings()
     stream._fill_pulse(outdata, 256, settings)
-    
+
     sr = settings["sample_rate"]
     amplitude = settings["pulse_amplitude"]
     indices = np.arange(256)
     expected = (amplitude * np.sin(2 * np.pi * 1.0 * indices / sr)).astype(np.float32)
-    
+
     assert np.allclose(outdata[:, 0], expected)
     assert np.allclose(outdata[:, 1], expected)
 
