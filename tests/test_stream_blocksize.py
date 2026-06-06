@@ -34,6 +34,22 @@ def test_fill_pulse_has_energy_at_cycle_start():
     assert np.any(outdata != 0)
 
 
+def test_fill_pulse_generates_sine_wave():
+    stream = AudioStream(lambda: _pulse_settings())
+    outdata = np.zeros((256, 2), dtype=np.float32)
+    stream._pulse_pos = 0
+    settings = _pulse_settings()
+    stream._fill_pulse(outdata, 256, settings)
+    
+    sr = settings["sample_rate"]
+    amplitude = settings["pulse_amplitude"]
+    indices = np.arange(256)
+    expected = (amplitude * np.sin(2 * np.pi * 1.0 * indices / sr)).astype(np.float32)
+    
+    assert np.allclose(outdata[:, 0], expected)
+    assert np.allclose(outdata[:, 1], expected)
+
+
 def test_fill_pulse_silent_between_pulses():
     stream = AudioStream(lambda: _pulse_settings())
     sr = 44100

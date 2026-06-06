@@ -97,9 +97,10 @@ class AudioStream:
         outdata.fill(0)
         pulse_frames = int(np.count_nonzero(in_pulse))
         if pulse_frames:
-            outdata[in_pulse] = np.random.uniform(
-                -amplitude, amplitude, (pulse_frames, 2)
-            ).astype(np.float32)
+            t = indices[in_pulse] / sr
+            val = (amplitude * np.sin(2 * np.pi * 1.0 * t)).astype(np.float32)
+            outdata[in_pulse, 0] = val
+            outdata[in_pulse, 1] = val
         self._pulse_pos = int(self._pulse_pos + frames)
         if self._pulse_pos >= cycle * 1000:
             self._pulse_pos %= cycle
