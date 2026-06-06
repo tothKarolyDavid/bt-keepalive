@@ -222,9 +222,18 @@ class TrayApp:
                 checked=lambda item: self._get_config().get("launch_at_startup", False),
                 enabled=lambda item: getattr(sys, "frozen", False),
             ),
+            pystray.MenuItem(
+                "Check for updates...",
+                lambda _: self._action_check_for_updates(),
+            ),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("Quit", lambda _: self._quit()),
         )
+
+    def _action_check_for_updates(self) -> None:
+        from btkeepalive.updater import check_for_updates_workflow
+
+        check_for_updates_workflow(manual=True)
 
     def _quit(self) -> None:
         if self._icon:

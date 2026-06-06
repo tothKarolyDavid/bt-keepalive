@@ -35,6 +35,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "autoplay": True,
     "launch_at_startup": False,
     "playing": True,
+    "check_for_updates": True,
 }
 
 

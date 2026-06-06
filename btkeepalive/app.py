@@ -10,6 +10,7 @@ from btkeepalive.single_instance import acquire
 from btkeepalive.startup import is_startup_enabled, set_startup_enabled
 from btkeepalive.stream import AudioStream
 from btkeepalive.tray_ui import TrayApp
+from btkeepalive.updater import cleanup_old_version
 
 
 class Application:
@@ -111,6 +112,7 @@ class Application:
             log_info("second instance blocked")
             return 0
 
+        cleanup_old_version()
         log_info("starting BT KeepAlive %s", __version__)
         self._sync_startup_registry()
 
@@ -133,6 +135,25 @@ class Application:
             preview_volume=self._preview_volume,
             on_quit=self._shutdown,
         )
+
+        if getattr(sys, "frozen", False) and self._config.get(
+            "check_for_updates", True
+        ):
+
+            def deferred_check() -> None:
+                import time
+
+                time.sleep(5)
+                from btkeepalive.updater import check_for_updates_workflow
+
+                check_for_updates_workflow(manual=False)
+
+            threading.Thread(
+                target=deferred_check,
+                name="startup-update-check",
+                daemon=True,
+            ).start()
+
         self._tray.run()
         return 0
 
