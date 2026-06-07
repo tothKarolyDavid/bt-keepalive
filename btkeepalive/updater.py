@@ -377,35 +377,29 @@ def show_info_dialog(title: str, message: str) -> None:
     root.destroy()
 
 
-def check_for_updates_workflow(*, manual: bool = False) -> None:
-    """Run the update checking and installation workflow."""
+def check_for_update_available() -> dict | None:
+    """Check if an update is available on GitHub.
 
-    def worker() -> None:
-        log_info("Checking for updates (manual=%s)...", manual)
+    Returns:
+        dict: A dictionary with 'version', 'download_url', and 'checksum_url' if available,
+              otherwise None.
+    """
+    try:
+        log_info("Checking for updates...")
         release = get_latest_release()
         if not release:
-            if manual:
-                msg = (
-                    "Failed to check for updates.\n"
-                    "Please verify your internet connection and try again."
-                )
-                show_info_dialog("BT KeepAlive: Update Check Failed", msg)
-            return
+            log_info("Failed to check for updates (no release data).")
+            return None
 
         tag_name = release.get("tag_name", "")
         if not tag_name:
-            if manual:
-                show_info_dialog(
-                    "BT KeepAlive: Update Check Failed",
-                    "Invalid release details received from GitHub.",
-                )
-            return
+            log_info("Invalid release details received from GitHub (no tag_name).")
+            return None
 
         latest_ver = parse_version(tag_name)
         current_ver = parse_version(__version__)
 
         if latest_ver > current_ver:
-            log_info("Update available: %s", tag_name)
             # Find the download and checksum URLs
             download_url = ""
             checksum_url = ""
@@ -417,25 +411,63 @@ def check_for_updates_workflow(*, manual: bool = False) -> None:
                     checksum_url = asset.get("browser_download_url", "")
 
             if not download_url or not checksum_url:
-                if manual:
+                log_info("Could not locate required release assets on GitHub.")
+                return None
+
+            return {
+                "version": tag_name,
+                "download_url": download_url,
+                "checksum_url": checksum_url,
+            }
+
+        log_info("BT KeepAlive is up to date (current: %s)", __version__)
+    except Exception as exc:
+        log_error("Error in check_for_update_available: %s", exc)
+    return None
+
+
+def run_update_install(version: str, download_url: str, checksum_url: str) -> None:
+    """Run the download progress dialog and hot swap process."""
+    dialog = DownloadProgressDialog(version, download_url, checksum_url)
+    dialog.run()
+
+
+def check_for_updates_workflow(*, manual: bool = False) -> None:
+    """Run the update checking and installation workflow (compatibility fallback)."""
+
+    def worker() -> None:
+        details = check_for_update_available()
+        if details:
+            if show_update_prompt(__version__, details["version"]):
+                run_update_install(
+                    details["version"],
+                    details["download_url"],
+                    details["checksum_url"],
+                )
+        elif manual:
+            # If manual check and no update was found or failed
+            release = get_latest_release()
+            if not release:
+                msg = (
+                    "Failed to check for updates.\n"
+                    "Please verify your internet connection and try again."
+                )
+                show_info_dialog("BT KeepAlive: Update Check Failed", msg)
+            else:
+                tag_name = release.get("tag_name", "")
+                if not tag_name:
                     show_info_dialog(
                         "BT KeepAlive: Update Check Failed",
-                        "Could not locate required release assets on GitHub.",
+                        "Invalid release details received from GitHub.",
                     )
-                return
-
-            # Show prompt
-            if show_update_prompt(__version__, tag_name):
-                # Start progress dialog
-                dialog = DownloadProgressDialog(tag_name, download_url, checksum_url)
-                dialog.run()
-        else:
-            log_info("BT KeepAlive is up to date (current: %s)", __version__)
-            if manual:
-                msg = (
-                    f"You are up to date! BT KeepAlive v{__version__} "
-                    f"is the latest version."
-                )
-                show_info_dialog("BT KeepAlive: Up to Date", msg)
+                else:
+                    latest_ver = parse_version(tag_name)
+                    current_ver = parse_version(__version__)
+                    if latest_ver <= current_ver:
+                        msg = (
+                            f"You are up to date! BT KeepAlive v{__version__} "
+                            f"is the latest version."
+                        )
+                        show_info_dialog("BT KeepAlive: Up to Date", msg)
 
     threading.Thread(target=worker, name="update-checker", daemon=True).start()

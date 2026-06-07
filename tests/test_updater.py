@@ -121,3 +121,66 @@ def test_get_latest_release(monkeypatch):
     assert result is not None
     assert result["tag_name"] == "v1.3.0"
     assert len(result["assets"]) == 2
+
+
+def test_check_for_update_available_new_version(monkeypatch):
+    monkeypatch.setattr(updater, "__version__", "1.2.0")
+
+    release_json = (
+        '{"tag_name": "v1.3.0", "assets": ['
+        '{"name": "BTKeepAlive.exe", "browser_download_url": "https://fake/BTKeepAlive.exe"},'
+        '{"name": "SHA256SUMS.txt", "browser_download_url": "https://fake/SHA256SUMS.txt"}'
+        "]}"
+    )
+
+    class FakeResponse:
+        status = 200
+
+        def read(self):
+            return release_json.encode("utf-8")
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+    monkeypatch.setattr(
+        "urllib.request.urlopen", lambda req, timeout=None: FakeResponse()
+    )
+
+    result = updater.check_for_update_available()
+    assert result is not None
+    assert result["version"] == "v1.3.0"
+    assert result["download_url"] == "https://fake/BTKeepAlive.exe"
+    assert result["checksum_url"] == "https://fake/SHA256SUMS.txt"
+
+
+def test_check_for_update_available_no_new_version(monkeypatch):
+    monkeypatch.setattr(updater, "__version__", "1.3.0")
+
+    release_json = (
+        '{"tag_name": "v1.3.0", "assets": ['
+        '{"name": "BTKeepAlive.exe", "browser_download_url": "https://fake/BTKeepAlive.exe"},'
+        '{"name": "SHA256SUMS.txt", "browser_download_url": "https://fake/SHA256SUMS.txt"}'
+        "]}"
+    )
+
+    class FakeResponse:
+        status = 200
+
+        def read(self):
+            return release_json.encode("utf-8")
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+    monkeypatch.setattr(
+        "urllib.request.urlopen", lambda req, timeout=None: FakeResponse()
+    )
+
+    result = updater.check_for_update_available()
+    assert result is None
