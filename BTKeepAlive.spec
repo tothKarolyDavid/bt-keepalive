@@ -3,7 +3,7 @@ from pathlib import Path
 
 from PyInstaller.utils.hooks import collect_submodules
 
-hiddenimports = ["pystray._win32", "btkeepalive.win_tray"]
+hiddenimports = ["pystray._win32", "btkeepalive.win_tray", "PIL._imaging"]
 hiddenimports += collect_submodules("btkeepalive")
 
 icon_path = Path("assets/icon.ico")
