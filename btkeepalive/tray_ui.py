@@ -53,6 +53,8 @@ class TrayApp:
         self._preview_volume_only = preview_volume
         self._on_quit = on_quit
         self._icon: pystray.Icon | None = None
+        self._update_details: dict | None = None
+        self._notified_version: str | None = None
 
     def _sync_title(self) -> None:
         if self._icon is None:
@@ -201,7 +203,7 @@ class TrayApp:
             for hz in CARRIER_OPTIONS
         ]
 
-        return pystray.Menu(
+        menu_items = [
             pystray.MenuItem(
                 lambda item: (
                     "Pause" if self._get_config().get("playing", True) else "Play"
@@ -222,18 +224,58 @@ class TrayApp:
                 checked=lambda item: self._get_config().get("launch_at_startup", False),
                 enabled=lambda item: getattr(sys, "frozen", False),
             ),
-            pystray.MenuItem(
-                "Check for updates...",
-                lambda _: self._action_check_for_updates(),
-            ),
+        ]
+
+        if self._update_details:
+            version = self._update_details.get("version", "new version")
+            menu_items.append(
+                pystray.MenuItem(
+                    f"Update to {version}...",
+                    lambda _: self._action_trigger_update(),
+                )
+            )
+
+        menu_items.extend([
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("Quit", lambda _: self._quit()),
-        )
+        ])
 
-    def _action_check_for_updates(self) -> None:
-        from btkeepalive.updater import check_for_updates_workflow
+        return pystray.Menu(*menu_items)
 
-        check_for_updates_workflow(manual=True)
+    def set_update_details(self, details: dict | None) -> None:
+        """Set update details, rebuild the tray menu, and optionally show a tray notification."""
+        self._update_details = details
+        if self._icon:
+            # Rebuild the menu dynamically by assigning it
+            self._icon.menu = self._build_menu()
+            if details:
+                version = details.get("version")
+                if version and version != self._notified_version:
+                    self._notified_version = version
+                    try:
+                        self._icon.notify(
+                            f"Update {version} is available. Right-click the tray icon to install.",
+                            "BT KeepAlive: Update Available"
+                        )
+                    except Exception:
+                        pass
+
+    def _action_trigger_update(self) -> None:
+        if not self._update_details:
+            return
+        from btkeepalive.updater import run_update_install
+        import threading
+
+        threading.Thread(
+            target=run_update_install,
+            args=(
+                self._update_details["version"],
+                self._update_details["download_url"],
+                self._update_details["checksum_url"],
+            ),
+            name="update-installer",
+            daemon=True,
+        ).start()
 
     def _quit(self) -> None:
         if self._icon:
