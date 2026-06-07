@@ -136,21 +136,29 @@ class Application:
             on_quit=self._shutdown,
         )
 
-        if getattr(sys, "frozen", False) and self._config.get(
-            "check_for_updates", True
-        ):
+        if self._config.get("check_for_updates", True):
 
             def deferred_check() -> None:
                 import time
+                from btkeepalive.updater import check_for_update_available
 
+                # Initial delay of 5 seconds to let the tray load completely
                 time.sleep(5)
-                from btkeepalive.updater import check_for_updates_workflow
 
-                check_for_updates_workflow(manual=False)
+                while True:
+                    try:
+                        details = check_for_update_available()
+                        if details and self._tray:
+                            self._tray.set_update_details(details)
+                    except Exception as exc:
+                        log_error("Automatic update check failed: %s", exc)
+
+                    # Check every 24 hours
+                    time.sleep(86400)
 
             threading.Thread(
                 target=deferred_check,
-                name="startup-update-check",
+                name="update-check-loop",
                 daemon=True,
             ).start()
 
