@@ -2,6 +2,25 @@
 
 <!-- version list -->
 
+## v1.4.0 (2026-06-07)
+
+### Bug Fixes
+
+- **ci**: Resolve ruff lint and format issues
+  ([`c3ee936`](https://github.com/tothKarolyDavid/bt-keepalive/commit/c3ee936ca18fc8dfa696ff744953b5e9b8b53471))
+
+### Features
+
+- **app**: Check for updates in background loop at startup and periodically
+  ([`f6a22c1`](https://github.com/tothKarolyDavid/bt-keepalive/commit/f6a22c12e453bb2d5e1cd642082813c4e92d3db5))
+
+- **ui**: Conditionally show update menu option in tray UI
+  ([`d2464df`](https://github.com/tothKarolyDavid/bt-keepalive/commit/d2464df5f3359bd4f098c0744c0c719f39141f0b))
+
+- **updater**: Refactor updater logic and add check_for_update_available
+  ([`fcb704b`](https://github.com/tothKarolyDavid/bt-keepalive/commit/fcb704bf31dd15c4cc90fefcb6d0e79a56a6a642))
+
+
 ## v1.3.0 (2026-06-06)
 
 ### Bug Fixes

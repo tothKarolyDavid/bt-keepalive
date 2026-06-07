@@ -4,7 +4,7 @@ import tomllib
 from pathlib import Path
 
 # When pyproject.toml is absent (e.g. PyInstaller one-file); keep in sync with it.
-_FALLBACK_VERSION = "1.3.0"
+_FALLBACK_VERSION = "1.4.0"
 
 
 def _read_project_version() -> str:
