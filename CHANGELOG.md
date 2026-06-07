@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.4.1 (2026-06-07)
+
+### Bug Fixes
+
+- **build**: Add PIL._imaging to hiddenimports in spec file
+  ([`1796552`](https://github.com/tothKarolyDavid/bt-keepalive/commit/1796552584e12b467bb02e082969812c4520f9b9))
+
+
 ## v1.4.0 (2026-06-07)
 
 ### Bug Fixes
