@@ -140,6 +140,7 @@ class Application:
 
             def deferred_check() -> None:
                 import time
+
                 from btkeepalive.updater import check_for_update_available
 
                 # Initial delay of 5 seconds to let the tray load completely

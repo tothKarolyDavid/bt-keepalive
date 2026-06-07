@@ -381,8 +381,8 @@ def check_for_update_available() -> dict | None:
     """Check if an update is available on GitHub.
 
     Returns:
-        dict: A dictionary with 'version', 'download_url', and 'checksum_url' if available,
-              otherwise None.
+        dict: A dictionary with 'version', 'download_url', and
+              'checksum_url' if available, otherwise None.
     """
     try:
         log_info("Checking for updates...")

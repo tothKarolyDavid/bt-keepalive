@@ -235,15 +235,20 @@ class TrayApp:
                 )
             )
 
-        menu_items.extend([
-            pystray.Menu.SEPARATOR,
-            pystray.MenuItem("Quit", lambda _: self._quit()),
-        ])
+        menu_items.extend(
+            [
+                pystray.Menu.SEPARATOR,
+                pystray.MenuItem("Quit", lambda _: self._quit()),
+            ]
+        )
 
         return pystray.Menu(*menu_items)
 
     def set_update_details(self, details: dict | None) -> None:
-        """Set update details, rebuild the tray menu, and optionally show a tray notification."""
+        """Set update details and rebuild the tray menu.
+
+        Optionally shows a tray notification if new update is found.
+        """
         self._update_details = details
         if self._icon:
             # Rebuild the menu dynamically by assigning it
@@ -254,8 +259,9 @@ class TrayApp:
                     self._notified_version = version
                     try:
                         self._icon.notify(
-                            f"Update {version} is available. Right-click the tray icon to install.",
-                            "BT KeepAlive: Update Available"
+                            f"Update {version} is available. "
+                            "Right-click the tray icon to install.",
+                            "BT KeepAlive: Update Available",
                         )
                     except Exception:
                         pass
@@ -263,8 +269,9 @@ class TrayApp:
     def _action_trigger_update(self) -> None:
         if not self._update_details:
             return
-        from btkeepalive.updater import run_update_install
         import threading
+
+        from btkeepalive.updater import run_update_install
 
         threading.Thread(
             target=run_update_install,
