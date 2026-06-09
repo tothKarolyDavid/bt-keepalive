@@ -130,6 +130,11 @@ def apply_hot_swap(new_path: Path) -> None:
                 pass
 
         # 2. Rename active executable to .exe.old
+        if not exe_path.is_file():
+            raise FileNotFoundError(
+                "The application executable has been moved or deleted since startup. "
+                "Please restore the file or restart the application."
+            )
         exe_path.rename(old_path)
         log_info("Renamed active exe to: %s", old_path.name)
 
@@ -280,7 +285,14 @@ class DownloadProgressDialog:
                 dest_dir.mkdir(exist_ok=True)
                 dest_path = dest_dir / "BTKeepAlive.exe.new"
             else:
-                dest_path = Path(sys.executable).with_suffix(".exe.new")
+                exe_path = Path(sys.executable)
+                if not exe_path.is_file():
+                    raise FileNotFoundError(
+                        "The application executable has been moved "
+                        "or deleted since startup. "
+                        "Please restore the file or restart the application."
+                    )
+                dest_path = exe_path.with_suffix(".exe.new")
 
             def check_cancel() -> bool:
                 return self.cancelled
