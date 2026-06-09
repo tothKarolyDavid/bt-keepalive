@@ -184,3 +184,41 @@ def test_check_for_update_available_no_new_version(monkeypatch):
 
     result = updater.check_for_update_available()
     assert result is None
+
+
+def test_apply_hot_swap_missing_executable(monkeypatch):
+    monkeypatch.setattr(sys, "executable", r"C:\Apps\MissingExe.exe", raising=False)
+
+    def fake_is_file(self):
+        return False
+
+    monkeypatch.setattr(Path, "is_file", fake_is_file)
+
+    import pytest
+
+    with pytest.raises(FileNotFoundError) as exc_info:
+        updater.apply_hot_swap(Path(r"C:\Apps\BTKeepAlive.exe.new"))
+
+    assert "moved or deleted since startup" in str(exc_info.value)
+
+
+def test_download_worker_missing_executable(monkeypatch):
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "executable", r"C:\Apps\MissingExe.exe", raising=False)
+
+    # Mock fetch_expected_sha256 to return a dummy hash so we pass step 1
+    monkeypatch.setattr(updater, "fetch_expected_sha256", lambda url: "dummy_hash")
+
+    def fake_is_file(self):
+        return False
+
+    monkeypatch.setattr(Path, "is_file", fake_is_file)
+
+    dialog = updater.DownloadProgressDialog(
+        "v1.3.0", "http://fake/download", "http://fake/checksum"
+    )
+    dialog.download_worker()
+
+    assert not dialog.success
+    assert dialog.error_message is not None
+    assert "moved or deleted since startup" in dialog.error_message
