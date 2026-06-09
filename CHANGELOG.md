@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.4.2 (2026-06-09)
+
+### Bug Fixes
+
+- **updater**: Check if active executable exists before update and hot-swap
+  ([`5da1bed`](https://github.com/tothKarolyDavid/bt-keepalive/commit/5da1bede95aceda21e6159c7c320c078c2f802d3))
+
+### Testing
+
+- **updater**: Add unit tests for missing/moved executable scenarios
+  ([`8b090fc`](https://github.com/tothKarolyDavid/bt-keepalive/commit/8b090fcf75953a3d88c16eb1e6378d899d6cc135))
+
+
 ## v1.4.1 (2026-06-07)
 
 ### Bug Fixes
