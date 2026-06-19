@@ -227,8 +227,9 @@ def test_download_worker_missing_executable(monkeypatch):
 def test_apply_hot_swap_success(monkeypatch):
     import os
     import subprocess
-    import pytest
     from pathlib import Path
+
+    import pytest
 
     # Set up some dummy environment variables simulating a PyInstaller run
     monkeypatch.setenv("_MEIPASS", r"C:\Temp\_MEI12345")
@@ -294,4 +295,3 @@ def test_apply_hot_swap_success(monkeypatch):
     assert r"C:\Apps\BTKeepAlive.exe.old" in unlinked
     assert (r"C:\Apps\BTKeepAlive.exe", r"C:\Apps\BTKeepAlive.exe.old") in renamed
     assert (r"C:\Apps\BTKeepAlive.exe.new", r"C:\Apps\BTKeepAlive.exe") in renamed
-
