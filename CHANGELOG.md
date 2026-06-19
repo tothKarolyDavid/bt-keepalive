@@ -2,6 +2,29 @@
 
 <!-- version list -->
 
+## v1.4.3 (2026-06-19)
+
+### Bug Fixes
+
+- **stream**: Recover audio stream on unexpected failure or device change
+  ([`e18e161`](https://github.com/tothKarolyDavid/bt-keepalive/commit/e18e1615d4f9b088765cce53189371799264d5c5))
+
+### Build System
+
+- **deps**: Bump actions/checkout from 4 to 7
+  ([`0384d73`](https://github.com/tothKarolyDavid/bt-keepalive/commit/0384d73a58588526c9a898e34b8b23323eccbdf2))
+
+### Code Style
+
+- **stream**: Fix ruff lint and formatting issues
+  ([`ac89f02`](https://github.com/tothKarolyDavid/bt-keepalive/commit/ac89f02a538f71dc85c65d8641281fdc1dbb9c5f))
+
+### Testing
+
+- **stream**: Add tests for monitor loop recovery and stream recreation
+  ([`f07641e`](https://github.com/tothKarolyDavid/bt-keepalive/commit/f07641edd99de5cdc87d2475f283a864a2200fb3))
+
+
 ## v1.4.2 (2026-06-09)
 
 ### Bug Fixes
