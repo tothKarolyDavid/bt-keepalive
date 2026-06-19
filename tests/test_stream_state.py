@@ -54,3 +54,131 @@ def test_stream_active_status():
 
         # New stream should be created and started
         mock_output_stream_cls.assert_called_once()
+
+
+def test_monitor_loop_unexpected_stop():
+    settings = {
+        "sample_rate": 44100,
+        "volume": 0.02,
+        "buffer_seconds": 0.012,
+        "keepalive_mode": "continuous",
+        "playing": True,
+    }
+    audio = AudioStream(lambda: settings)
+
+    # Mock is_running to return False (unexpectedly stopped)
+    audio.is_running = MagicMock(return_value=False)
+    audio._recreate_stream = MagicMock(return_value=True)
+
+    # Mock stop_event.wait to run once and then exit
+    stop_event = MagicMock()
+    stop_event.wait.side_effect = [False, True]
+
+    audio._monitor_loop(stop_event)
+
+    # Should check is_running, see it's False, and trigger _recreate_stream
+    audio.is_running.assert_called_once()
+    audio._recreate_stream.assert_called_once_with(stop_event)
+
+
+def test_monitor_loop_paused():
+    settings = {
+        "sample_rate": 44100,
+        "volume": 0.02,
+        "buffer_seconds": 0.012,
+        "keepalive_mode": "continuous",
+        "playing": False,  # Paused by user
+    }
+    audio = AudioStream(lambda: settings)
+
+    audio.is_running = MagicMock(return_value=False)
+    audio._recreate_stream = MagicMock()
+
+    stop_event = MagicMock()
+    stop_event.wait.side_effect = [False, True]
+
+    audio._monitor_loop(stop_event)
+
+    # Since playing is False, it should exit immediately without checking running or recreating
+    audio.is_running.assert_not_called()
+    audio._recreate_stream.assert_not_called()
+
+
+def test_monitor_loop_device_change():
+    settings = {
+        "sample_rate": 44100,
+        "volume": 0.02,
+        "buffer_seconds": 0.012,
+        "keepalive_mode": "continuous",
+        "playing": True,
+    }
+    audio = AudioStream(lambda: settings)
+    audio.is_running = MagicMock(return_value=True)
+    audio._last_device_id = "device_1"
+
+    # Mock get_default_audio_endpoint_id to return a new device
+    with patch("btkeepalive.stream.get_default_audio_endpoint_id", return_value="device_2") as mock_get_endpoint:
+        audio._recreate_stream = MagicMock(return_value=True)
+
+        stop_event = MagicMock()
+        stop_event.wait.side_effect = [False, True]
+
+        audio._monitor_loop(stop_event)
+
+        # Should detect device change and call _recreate_stream
+        audio._recreate_stream.assert_called_once_with(stop_event)
+
+
+def test_recreate_stream_success():
+    settings = {
+        "sample_rate": 44100,
+        "volume": 0.02,
+        "buffer_seconds": 0.012,
+        "keepalive_mode": "continuous",
+        "playing": True,
+    }
+    audio = AudioStream(lambda: settings)
+    audio.stop = MagicMock()
+    audio.start = MagicMock()
+
+    stop_event = MagicMock()
+
+    with patch("btkeepalive.stream.sd") as mock_sd:
+        success = audio._recreate_stream(stop_event)
+
+        assert success is True
+        audio.stop.assert_called_once()
+        mock_sd._terminate.assert_called_once()
+        mock_sd._initialize.assert_called_once()
+        audio.start.assert_called_once()
+        assert audio._last_error_logged is None
+
+
+def test_recreate_stream_failure():
+    settings = {
+        "sample_rate": 44100,
+        "volume": 0.02,
+        "buffer_seconds": 0.012,
+        "keepalive_mode": "continuous",
+        "playing": True,
+    }
+    audio = AudioStream(lambda: settings)
+    audio.stop = MagicMock()
+    audio.start = MagicMock(side_effect=RuntimeError("Some audio error"))
+
+    stop_event = MagicMock()
+
+    with patch("btkeepalive.stream.sd") as mock_sd, \
+         patch("btkeepalive.stream.log_error") as mock_log_error:
+        success = audio._recreate_stream(stop_event)
+
+        assert success is False
+        audio.stop.assert_called_once()
+        mock_sd._terminate.assert_called_once()
+        mock_sd._initialize.assert_called_once()
+        audio.start.assert_called_once()
+
+        # Check that error is logged and stop_event cleared
+        mock_log_error.assert_called_once()
+        assert audio._last_error_logged == "Some audio error"
+        stop_event.clear.assert_called_once()
