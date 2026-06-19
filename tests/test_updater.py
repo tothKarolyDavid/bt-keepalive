@@ -222,3 +222,76 @@ def test_download_worker_missing_executable(monkeypatch):
     assert not dialog.success
     assert dialog.error_message is not None
     assert "moved or deleted since startup" in dialog.error_message
+
+
+def test_apply_hot_swap_success(monkeypatch):
+    import os
+    import subprocess
+    import pytest
+    from pathlib import Path
+
+    # Set up some dummy environment variables simulating a PyInstaller run
+    monkeypatch.setenv("_MEIPASS", r"C:\Temp\_MEI12345")
+    monkeypatch.setenv("_MEIPASS2", r"C:\Temp\_MEI12345")
+    monkeypatch.setenv("SOME_OTHER_VAR", "hello")
+
+    monkeypatch.setattr(sys, "executable", r"C:\Apps\BTKeepAlive.exe", raising=False)
+
+    # Mock file checks/renaming/deletions
+    renamed = []
+    unlinked = []
+
+    def fake_is_file(self):
+        return True
+
+    def fake_rename(self, target):
+        renamed.append((str(self), str(target)))
+
+    def fake_unlink(self):
+        unlinked.append(str(self))
+
+    monkeypatch.setattr(Path, "is_file", fake_is_file)
+    monkeypatch.setattr(Path, "rename", fake_rename)
+    monkeypatch.setattr(Path, "unlink", fake_unlink)
+
+    # Mock subprocess.Popen and capture parameters
+    popen_args = {}
+
+    def fake_popen(args, **kwargs):
+        popen_args["args"] = args
+        popen_args.update(kwargs)
+        return None
+
+    monkeypatch.setattr(subprocess, "Popen", fake_popen)
+
+    # Mock os._exit to raise a custom exception to stop execution instead of terminating
+    class MockExitException(Exception):
+        pass
+
+    def fake_exit(code):
+        raise MockExitException(f"exited with {code}")
+
+    monkeypatch.setattr(os, "_exit", fake_exit)
+
+    with pytest.raises(MockExitException) as exc_info:
+        updater.apply_hot_swap(Path(r"C:\Apps\BTKeepAlive.exe.new"))
+
+    assert "exited with 0" in str(exc_info.value)
+    assert popen_args["args"] == [r"C:\Apps\BTKeepAlive.exe"]
+    assert popen_args["creationflags"] == 0x00000008
+    assert popen_args["close_fds"] is True
+    assert popen_args["start_new_session"] is True
+
+    # Check env cleaning
+    env = popen_args["env"]
+    assert env is not None
+    assert env.get("PYINSTALLER_RESET_ENVIRONMENT") == "1"
+    assert "_MEIPASS" not in env
+    assert "_MEIPASS2" not in env
+    assert env.get("SOME_OTHER_VAR") == "hello"
+
+    # Verify expected file operations
+    assert r"C:\Apps\BTKeepAlive.exe.old" in unlinked
+    assert (r"C:\Apps\BTKeepAlive.exe", r"C:\Apps\BTKeepAlive.exe.old") in renamed
+    assert (r"C:\Apps\BTKeepAlive.exe.new", r"C:\Apps\BTKeepAlive.exe") in renamed
+

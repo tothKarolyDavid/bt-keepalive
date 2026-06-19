@@ -142,13 +142,20 @@ def apply_hot_swap(new_path: Path) -> None:
         new_path.rename(exe_path)
         log_info("Placed new exe at: %s", exe_path.name)
 
-        # 4. Spawn the new executable as a detached process
+        # 4. Spawn the new executable as a detached process with a clean environment
+        # to prevent PyInstaller path/temporary folder inheritance issues.
+        env = os.environ.copy()
+        env["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
+        env.pop("_MEIPASS", None)
+        env.pop("_MEIPASS2", None)
+
         DETACHED_PROCESS = 0x00000008
         subprocess.Popen(
             [str(exe_path)],
             creationflags=DETACHED_PROCESS,
             close_fds=True,
             start_new_session=True,
+            env=env,
         )
         log_info("Spawned new process: %s", exe_path.name)
 
