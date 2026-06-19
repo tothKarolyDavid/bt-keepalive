@@ -2,6 +2,24 @@
 
 <!-- version list -->
 
+## v1.4.4 (2026-06-19)
+
+### Bug Fixes
+
+- **updater**: Reset environment variables before self-restart
+  ([`952d7d1`](https://github.com/tothKarolyDavid/bt-keepalive/commit/952d7d19012f4334ec941f803bd0638a39848f5c))
+
+### Chores
+
+- **ci**: Add pre-commit config and compile step to CI
+  ([`96c3402`](https://github.com/tothKarolyDavid/bt-keepalive/commit/96c3402678228fc795405aa09d97f79a6c00d1f3))
+
+### Code Style
+
+- **updater**: Ruff formatting and import sorting in test_updater
+  ([`f21af8b`](https://github.com/tothKarolyDavid/bt-keepalive/commit/f21af8b07b9c0f1d3219626c64b8af0cc7990a04))
+
+
 ## v1.4.3 (2026-06-19)
 
 ### Bug Fixes
