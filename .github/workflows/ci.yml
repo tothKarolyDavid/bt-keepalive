@@ -27,3 +27,12 @@ jobs:
 
       - name: Pytest
         run: pytest
+
+      - name: Build executable
+        run: powershell -ExecutionPolicy Bypass -File build.ps1
+
+      - name: Smoke test executable
+        shell: pwsh
+        run: |
+          & dist/BTKeepAlive.exe --version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
