@@ -48,6 +48,7 @@ class AudioStream:
         self._monitor_thread: threading.Thread | None = None
         self._stop_monitor_event: threading.Event | None = None
         self._last_device_id: str | None = None
+        self._last_error_logged: str | None = None
 
     def set_volume(self, volume: float) -> None:
         self._live_volume = float(volume)
@@ -239,10 +240,41 @@ class AudioStream:
             except Exception:
                 pass
 
+    def _recreate_stream(self, stop_event: threading.Event) -> bool:
+        """Attempt to stop the stream, re-initialize sounddevice, and start a new stream.
+
+        Returns True if successful, False otherwise.
+        """
+        self.stop()
+        try:
+            sd._terminate()
+            sd._initialize()
+        except Exception as e:
+            log_error("Failed to re-initialize sounddevice: %s", e)
+        try:
+            self.start()
+            self._last_error_logged = None
+            return True
+        except Exception as e:
+            err_msg = str(e)
+            if err_msg != getattr(self, "_last_error_logged", None):
+                log_error("Failed to restart stream: %s. Will retry...", err_msg)
+                self._last_error_logged = err_msg
+            stop_event.clear()
+            return False
+
     def _monitor_loop(self, stop_event: threading.Event) -> None:
         while not stop_event.wait(3.0):
-            if not self.is_running():
+            settings = self._get_settings()
+            if not settings.get("playing", True):
                 break
+
+            if not self.is_running():
+                log_info("Audio stream stopped unexpectedly. Attempting to restart...")
+                if self._recreate_stream(stop_event):
+                    break
+                continue
+
             try:
                 current_id = get_default_audio_endpoint_id()
             except Exception:
@@ -261,11 +293,5 @@ class AudioStream:
                     last_id,
                     current_id,
                 )
-                self.stop()
-                try:
-                    sd._terminate()
-                    sd._initialize()
-                except Exception as e:
-                    log_error("Failed to re-initialize sounddevice: %s", e)
-                self.start()
-                break
+                if self._recreate_stream(stop_event):
+                    break
