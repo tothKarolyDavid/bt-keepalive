@@ -241,7 +241,8 @@ class AudioStream:
                 pass
 
     def _recreate_stream(self, stop_event: threading.Event) -> bool:
-        """Attempt to stop the stream, re-initialize sounddevice, and start a new stream.
+        """Attempt to stop the stream, re-initialize sounddevice,
+        and start a new stream.
 
         Returns True if successful, False otherwise.
         """

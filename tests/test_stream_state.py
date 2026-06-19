@@ -99,7 +99,8 @@ def test_monitor_loop_paused():
 
     audio._monitor_loop(stop_event)
 
-    # Since playing is False, it should exit immediately without checking running or recreating
+    # Since playing is False, it should exit immediately without checking
+    # running or recreating
     audio.is_running.assert_not_called()
     audio._recreate_stream.assert_not_called()
 
@@ -117,7 +118,10 @@ def test_monitor_loop_device_change():
     audio._last_device_id = "device_1"
 
     # Mock get_default_audio_endpoint_id to return a new device
-    with patch("btkeepalive.stream.get_default_audio_endpoint_id", return_value="device_2") as mock_get_endpoint:
+    with patch(
+        "btkeepalive.stream.get_default_audio_endpoint_id",
+        return_value="device_2",
+    ):
         audio._recreate_stream = MagicMock(return_value=True)
 
         stop_event = MagicMock()
@@ -168,8 +172,10 @@ def test_recreate_stream_failure():
 
     stop_event = MagicMock()
 
-    with patch("btkeepalive.stream.sd") as mock_sd, \
-         patch("btkeepalive.stream.log_error") as mock_log_error:
+    with (
+        patch("btkeepalive.stream.sd") as mock_sd,
+        patch("btkeepalive.stream.log_error") as mock_log_error,
+    ):
         success = audio._recreate_stream(stop_event)
 
         assert success is False
